@@ -35,6 +35,25 @@ Alle Widgets lesen CSS-Variablen und haben dunkle Standardwerte. Zum Anpassen im
 
 Die Schrift Barlow ist im Widget enthalten (keine Anfrage an Google).
 
+## Umgekehrte Datenpunkte („!“)
+
+Manche Datenpunkte meinen das Gegenteil dessen, was die Widgets erwarten:
+
+- Homematic `UNREACH`: `true` = **kein** Empfang.
+- Zigbee `contact`: `true` = **zu**.
+
+Statt eines Alias genügt ein `!` vor der ID, in den Feldern der Kachel und der Fußbodenheizung genauso wie in der Geräteliste des Grundrisses:
+
+```
+!hm-rpc.0.ABC1234567.0.UNREACH
+!zigbee.0.00158d0001a2b3c4.contact
+```
+
+- Gelesen wird das Gegenteil (`true` ↔ `false`, Zahl > 0 ↔ 0); ein unbekannter Wert bleibt unbekannt.
+- Schaltet eine Kachel einen umgekehrten Datenpunkt, schreibt sie ebenfalls das Gegenteil.
+- Gedacht für An/Aus-Datenpunkte. Für Rollos 0 = offen gibt es weiter `invertieren`.
+- Ein Fensterkontakt als Zahl (0 zu, 1 gekippt, 2 offen) braucht nichts: alles über 0 gilt als offen.
+
 ## Kachel
 
 Eine Kachel ist 88 × 88 px groß. Wird das Widget größer oder kleiner gezogen, skaliert die Kachel mit; auf dem Handy sind z. B. 72 × 72 px sinnvoll.
@@ -142,7 +161,7 @@ Das Widget **Grundriss** zeigt einen Plan mit Geräte-Pins und dem Lichtschein j
 | `oidRauch`, `oidSirene` | Rauchmelder: eigene Detektion und Ansteuerung durch den Alarm-Adapter; Rauch hat Vorrang |
 | `oidEmpfang`, `empfangGrenze` | WLAN-Badge |
 | `oidBatterie`, `batterieGrenze` | Batterie-Badge, nur bei batteriebetriebenen Typen; Standard 20 % |
-| `invertieren` | Kontakte: true = zu; Rollos: 0 = offen |
+| `invertieren` | Kontakte: true = zu; Rollos: 0 = offen. Für An/Aus-Datenpunkte geht auch `!` vor der ID |
 | `icon` | bei `geraet`: Icon aus dem Satz, z. B. `waschmaschine` |
 | `einheit`, `nachkomma` | bei `thermometer`, Standard `°` und 1 |
 

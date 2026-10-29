@@ -34,6 +34,7 @@ import {
 import { loadPlan, resolveImage } from '../lib/svg';
 import { ensureStyles, fonts, v } from '../lib/theme';
 import { PREFIX, SET_INFO, requestPin } from '../lib/vis';
+import { writeTarget } from '../lib/oid';
 import { StateWatcher } from '../lib/watch';
 
 interface PanelRxData {
@@ -190,7 +191,8 @@ export default class ZuhauseEtagenPanel extends (window.visRxWidget as typeof Vi
 
     private write(id: string, value: boolean | number): void {
         if (!this.props.editMode && id) {
-            this.props.context.setValue(id, value);
+            const w = writeTarget(id, value);
+            this.props.context.setValue(w.id, w.value);
         }
     }
 

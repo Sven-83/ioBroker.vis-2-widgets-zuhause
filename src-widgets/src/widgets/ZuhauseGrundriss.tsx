@@ -36,6 +36,7 @@ import {
 import { loadPlan, resolveImage, type PlanSvg } from '../lib/svg';
 import { ensureStyles, fonts, v } from '../lib/theme';
 import { PREFIX, SET_INFO, motionAllowed, motionClass } from '../lib/vis';
+import { writeTarget } from '../lib/oid';
 import { StateWatcher } from '../lib/watch';
 
 const LONG_PRESS_MS = 500;
@@ -238,7 +239,8 @@ export default class ZuhauseGrundriss extends (window.visRxWidget as typeof VisR
         if (this.props.editMode || !id) {
             return;
         }
-        this.props.context.setValue(id, value);
+        const w = writeTarget(id, value);
+        this.props.context.setValue(w.id, w.value);
         const ts = this.watcher?.snapshot(id)?.ts ?? 0;
         this.setState(s => ({
             zhPending: { ...s.zhPending, [id]: ts },

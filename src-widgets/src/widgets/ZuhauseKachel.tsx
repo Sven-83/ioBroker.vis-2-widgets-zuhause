@@ -33,10 +33,23 @@ import {
     tapAction,
     tileLook,
 } from '../lib/model';
+import { invertedIds, isInverted, readValue, writeTarget } from '../lib/oid';
 import { ensureStyles, v } from '../lib/theme';
 import { MOTION_FIELDS, PIN_DEFAULTS, PREFIX, SET_INFO, motionAllowed, motionClass, requestPin } from '../lib/vis';
+import { StateWatcher } from '../lib/watch';
 
 const LONG_PRESS_MS = 500;
+/** attribute fields of type "id"; the ones starting with "!" are subscribed by the widget itself */
+const ID_FIELDS = [
+    'oid',
+    'oidSchreiben',
+    'oidAlarm',
+    'badgeSchloss',
+    'badgeCo2',
+    'badgeLicht',
+    'oidEmpfang',
+    'oidBatterie',
+] as const;
 
 interface KachelRxData {
     typ: string;
@@ -92,6 +105,10 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
     /** timestamp of the value before our command; a newer ack confirms it */
     private sentTs = 0;
     private minuteTimer?: ReturnType<typeof setInterval>;
+    /** subscriptions of the ids with "!" */
+    private inverted?: StateWatcher;
+    /** last raw value of oid, to count changes */
+    private lastVal: unknown;
 
     constructor(props: VisRxWidgetProps) {
         super(props);
@@ -129,7 +146,7 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
                             default: 'schalter',
                             noTranslation: false,
                         },
-                        { name: 'oid', type: 'id', label: 'oid' },
+                        { name: 'oid', type: 'id', label: 'oid', tooltip: 'oid_tip' },
                         {
                             name: 'oidSchreiben',
                             type: 'id',
@@ -288,6 +305,16 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
         super.componentDidMount();
         ensureStyles();
         this.minuteTimer = setInterval(() => this.setState({ zhNow: Date.now() }), 60_000);
+        this.inverted = new StateWatcher(this.props.context.socket, () => this.forceUpdate());
+        this.syncInverted();
+    }
+
+    onRxDataChanged(): void {
+        this.syncInverted();
+    }
+
+    private syncInverted(): void {
+        void this.inverted?.watch(invertedIds(ID_FIELDS.map(f => this.state.rxData[f] as string | undefined)));
     }
 
     componentWillUnmount(): void {
@@ -298,6 +325,7 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
         if (this.minuteTimer) {
             clearInterval(this.minuteTimer);
         }
+        this.inverted?.stop();
         super.componentWillUnmount();
     }
 
@@ -307,12 +335,13 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
         if (!oid) {
             return;
         }
-        const val = this.state.values[`${oid}.val`];
-        if (prevState.values[`${oid}.val`] !== val && prevState.values[`${oid}.val`] !== undefined) {
+        const val = this.raw(oid, 'val');
+        if (val !== this.lastVal && this.lastVal !== undefined) {
             this.setState(s => ({ zhChanges: s.zhChanges + 1 }));
         }
-        const ts = this.state.values[`${oid}.ts`] as number | undefined;
-        const ack = this.state.values[`${oid}.ack`] as boolean | undefined;
+        this.lastVal = val;
+        const ts = this.raw(oid, 'ts') as number | undefined;
+        const ack = this.raw(oid, 'ack') as boolean | undefined;
         if (this.state.zhPending && ack && ts !== undefined && ts !== this.sentTs) {
             if (this.ackTimer) {
                 clearTimeout(this.ackTimer);
@@ -324,8 +353,17 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
 
     // ---------------------------------------------------------------- values
 
+    /** State part as stored; ids with "!" come from the own subscription */
+    private raw(oid: string | undefined, key: 'val' | 'ts' | 'ack'): unknown {
+        if (!oid) {
+            return undefined;
+        }
+        return isInverted(oid) ? this.inverted?.snapshot(oid)?.[key] : this.state.values[`${oid}.${key}`];
+    }
+
+    /** Value as the tile sees it ("!" inverted) */
     private val(oid: string | undefined): unknown {
-        return oid ? this.state.values[`${oid}.val`] : undefined;
+        return readValue(oid, this.raw(oid, 'val'));
     }
 
     private get on(): boolean {
@@ -341,10 +379,10 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
             return;
         }
         // keep the type of numeric switches (0/1)
-        const current = this.val(target);
-        const out = typeof current === 'number' ? (value ? 1 : 0) : value;
-        this.sentTs = this.state.values[`${oid}.ts`] ?? 0;
-        this.props.context.setValue(target, out);
+        const current = this.raw(target, 'val');
+        const w = writeTarget(target, typeof current === 'number' ? (value ? 1 : 0) : value);
+        this.sentTs = (this.raw(oid, 'ts') as number | undefined) ?? 0;
+        this.props.context.setValue(w.id, w.value);
         if (this.ackTimer) {
             clearTimeout(this.ackTimer);
         }
@@ -491,7 +529,7 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
             dots.push(v('light'));
         }
         const lock = d.badgeSchloss ? isOn(this.val(d.badgeSchloss)) : undefined;
-        const ts = d.oid ? (this.state.values[`${d.oid}.ts`] as number | undefined) : undefined;
+        const ts = this.raw(d.oid, 'ts') as number | undefined;
 
         return (
             <Scaled base={TILE_BASE}>

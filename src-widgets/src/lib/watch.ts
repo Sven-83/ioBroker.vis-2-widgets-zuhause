@@ -1,7 +1,10 @@
 /*
  * Subscriptions for data points that are not attribute fields of type "id" (VIS-2 subscribes only those):
  * the device list of the floor plan is JSON, so the widgets subscribe its data points themselves.
+ * Ids may start with "!" (inverted, see oid.ts): the real id is subscribed, val() gives the opposite.
  */
+import { readValue, realId } from './oid';
+
 type StateHandler = (id: string, state: ioBroker.State | null | undefined) => void;
 
 /** The part of the VIS-2 connection the watcher needs */
@@ -35,7 +38,7 @@ export class StateWatcher {
 
     /** Subscribes exactly these ids (no-op when unchanged) */
     async watch(ids: string[]): Promise<void> {
-        const next = [...new Set(ids.filter(Boolean))].sort();
+        const next = [...new Set(ids.map(realId).filter(Boolean))].sort();
         if (next.join('|') === this.ids.join('|')) {
             return;
         }
@@ -66,9 +69,10 @@ export class StateWatcher {
         this.values = {};
     }
 
-    val = (id: string | undefined): unknown => (id ? this.values[id]?.val : undefined);
+    val = (id: string | undefined): unknown => (id ? readValue(id, this.values[realId(id)]?.val) : undefined);
 
+    /** Raw state of the real id (val not inverted) */
     snapshot(id: string): Snapshot | undefined {
-        return this.values[id];
+        return this.values[realId(id)];
     }
 }

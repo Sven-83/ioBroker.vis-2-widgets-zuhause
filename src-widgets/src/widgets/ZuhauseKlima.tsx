@@ -13,8 +13,10 @@ import { Icon } from '../components/Icon';
 import { Scaled } from '../components/Scaled';
 import { DiagBadge, TILE_BASE, WLAN_OFF } from '../components/Tile';
 import { formatNumber, isOn, noReception } from '../lib/model';
+import { invertedIds, isInverted, readValue, realId } from '../lib/oid';
 import { ensureStyles, fonts, v } from '../lib/theme';
 import { PREFIX, SET_INFO, motionAllowed, motionClass } from '../lib/vis';
+import { StateWatcher } from '../lib/watch';
 
 const LONG_PRESS_MS = 500;
 const HEAT = { bg: '#3a2614', border: '#f0883e', fg: '#ffc08a' };
@@ -39,6 +41,8 @@ interface KlimaState extends VisRxWidgetState {
 
 export default class ZuhauseKlima extends (window.visRxWidget as typeof VisRxWidget)<KlimaRxData, KlimaState> {
     private longTimer?: ReturnType<typeof setTimeout>;
+    /** subscriptions of the ids with "!" */
+    private inverted?: StateWatcher;
 
     constructor(props: VisRxWidgetProps) {
         super(props);
@@ -103,17 +107,29 @@ export default class ZuhauseKlima extends (window.visRxWidget as typeof VisRxWid
     componentDidMount(): void {
         super.componentDidMount();
         ensureStyles();
+        this.inverted = new StateWatcher(this.props.context.socket, () => this.forceUpdate());
+        this.onRxDataChanged();
+    }
+
+    onRxDataChanged(): void {
+        const d = this.state.rxData;
+        void this.inverted?.watch(invertedIds([d.oidIst, d.oidSoll, d.oidHeizt, d.oidEmpfang]));
     }
 
     componentWillUnmount(): void {
         if (this.longTimer) {
             clearTimeout(this.longTimer);
         }
+        this.inverted?.stop();
         super.componentWillUnmount();
     }
 
+    /** Value of a data point; ids with "!" are inverted and come from the own subscription */
     private val(oid: string | undefined): unknown {
-        return oid ? this.state.values[`${oid}.val`] : undefined;
+        if (!oid) {
+            return undefined;
+        }
+        return isInverted(oid) ? this.inverted?.val(oid) : readValue(oid, this.state.values[`${oid}.val`]);
     }
 
     private cancel = (): void => {
@@ -238,7 +254,7 @@ export default class ZuhauseKlima extends (window.visRxWidget as typeof VisRxWid
                                 step={Number(d.schritt) || 0.5}
                                 presets={parsePresets(d.schnellwahl)}
                                 lang={lang}
-                                onSetpoint={n => this.props.context.setValue(d.oidSoll, n)}
+                                onSetpoint={n => this.props.context.setValue(realId(d.oidSoll), n)}
                                 onClose={() => this.setState({ zhPopup: false })}
                             />
                         ) : null}

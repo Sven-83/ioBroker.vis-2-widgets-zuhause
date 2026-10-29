@@ -32,6 +32,10 @@ const T = {
     typ_status: ['Status', 'Status'],
     'typ_status-warnung': ['Status with warning', 'Status mit Warnung'],
     oid: ['Data point', 'Datenpunkt'],
+    oid_tip: [
+        'A "!" in front inverts the value, e.g. !zigbee.0.window.contact (true = closed)',
+        'Ein „!“ davor kehrt den Wert um, z. B. !zigbee.0.fenster.contact (true = zu)',
+    ],
     oid_write: ['Write to (optional)', 'Schreiben auf (optional)'],
     oid_write_tip: [
         'Only if commands go to another data point than the status',
@@ -86,8 +90,8 @@ const T = {
     class_fbh: ['Floor heating (mains)', 'Fußbodenheizung (Netz)'],
     oid_reception: ['Reception / reachable', 'Empfang / erreichbar'],
     oid_reception_tip: [
-        'Badge at false or 0; with a limit also at values <= limit',
-        'Badge bei false oder 0; mit Grenze auch bei Werten <= Grenze',
+        'Badge at false or 0; with a limit also at values <= limit. Homematic UNREACH with "!" in front',
+        'Badge bei false oder 0; mit Grenze auch bei Werten <= Grenze. Homematic UNREACH mit „!“ davor',
     ],
     reception_limit: ['Reception limit', 'Empfang-Grenze'],
     reception_limit_tip: ['0 = only 0/false. For dBm e.g. -90', '0 = nur 0/false. Für dBm z. B. -90'],
