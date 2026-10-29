@@ -21,6 +21,8 @@ German documentation: [docs/de/README.md](docs/de/README.md).
 | Grundriss | floor plan SVG with device pins (JSON list), light glow per zone, blind daylight, red tint of open windows; brightness and height popups |
 | Etagen-Panel | side panel of a floor plan: light, sockets, blinds, security |
 | Klima | floor heating tile with setpoint popup |
+| Kopfzeile | page head: small line, title, view tabs, date and clock |
+| Legende | one line legend of the tile signs |
 
 The colours come from CSS variables (`--card`, `--sw-on`, …) with dark defaults, so a project CSS can
 theme all widgets at once.

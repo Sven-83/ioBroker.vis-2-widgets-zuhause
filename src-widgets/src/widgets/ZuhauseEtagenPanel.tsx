@@ -12,6 +12,7 @@ import type { RxRenderWidgetProps, RxWidgetInfo, VisRxWidgetProps, VisRxWidgetSt
 import type VisRxWidget from '@iobroker/types-vis-2/visRxWidget';
 
 import { Icon } from '../components/Icon';
+import { ICONS } from '../lib/icons';
 import { isOn } from '../lib/model';
 import {
     blindPosition,
@@ -147,25 +148,28 @@ export default class ZuhauseEtagenPanel extends (window.visRxWidget as typeof Vi
         this.sync();
     }
 
-    /** Data of the chosen Grundriss widget (searched in all views of the project) */
+    /**
+     * Data of the chosen Grundriss widget (searched in all views of the project). Without a choice, or when the
+     * chosen id is gone (an imported view gets new widget ids), the only Grundriss widget of the own view is used.
+     */
     private planData(): Record<string, unknown> | null {
         const wid = this.state.rxData.grundriss;
-        if (!wid) {
-            return null;
-        }
         const views = this.props.context.views as unknown as Record<
             string,
-            { widgets?: Record<string, { data?: Record<string, unknown> }> }
+            { widgets?: Record<string, { tpl?: string; data?: Record<string, unknown> }> }
         >;
-        // own view first, then the others (a widget id is unique in a project, but be safe with copies)
-        const order = [this.props.view, ...Object.keys(views).filter(n => n !== this.props.view)];
-        for (const name of order) {
-            const view = views[name];
-            if (name !== '___settings' && view?.widgets?.[wid]) {
-                return view.widgets[wid].data || null;
+        if (wid) {
+            // own view first, then the others (a widget id is unique in a project, but be safe with copies)
+            const order = [this.props.view, ...Object.keys(views).filter(n => n !== this.props.view)];
+            for (const name of order) {
+                const view = views[name];
+                if (name !== '___settings' && view?.widgets?.[wid]) {
+                    return view.widgets[wid].data || null;
+                }
             }
         }
-        return null;
+        const plans = Object.values(views[this.props.view]?.widgets || {}).filter(w => w.tpl === 'tplZuhauseGrundriss');
+        return plans.length === 1 ? plans[0].data || null : null;
     }
 
     private devices(): PlanDevice[] {
@@ -293,7 +297,8 @@ export default class ZuhauseEtagenPanel extends (window.visRxWidget as typeof Vi
                         strokeLinecap="round"
                         aria-hidden
                     >
-                        <path d={WLAN_OFF} />
+                        {/* WLAN sign as soon as a device has no reception, else only weak batteries */}
+                        <path d={/kein Empfang|ohne Empfang/i.test(text) ? WLAN_OFF : ICONS['batterie-schwach']} />
                     </svg>
                 </span>
                 <span style={{ fontSize: 13, lineHeight: 1.35 }}>{text}</span>
@@ -363,7 +368,7 @@ export default class ZuhauseEtagenPanel extends (window.visRxWidget as typeof Vi
                 {ZuhauseEtagenPanel.head(
                     ZuhauseEtagenPanel.iconBox('licht', on.length > 0),
                     `${on.length} an`,
-                    `von ${lamps.length} Lampen · ${this.state.rxData.titel}`,
+                    `von ${lamps.length} ${lamps.length === 1 ? 'Lampe' : 'Lampen'} · ${this.state.rxData.titel}`,
                 )}
             </React.Fragment>,
             <div
@@ -425,7 +430,7 @@ export default class ZuhauseEtagenPanel extends (window.visRxWidget as typeof Vi
                 {ZuhauseEtagenPanel.head(
                     ZuhauseEtagenPanel.iconBox('steckdose', on.length > 0),
                     `${on.length} an`,
-                    `von ${sockets.length} Steckdosen · ${this.state.rxData.titel}`,
+                    `von ${sockets.length} ${sockets.length === 1 ? 'Steckdose' : 'Steckdosen'} · ${this.state.rxData.titel}`,
                 )}
             </React.Fragment>,
             <React.Fragment key="wartung">
@@ -464,7 +469,7 @@ export default class ZuhauseEtagenPanel extends (window.visRxWidget as typeof Vi
                 {ZuhauseEtagenPanel.head(
                     ZuhauseEtagenPanel.iconBox('jalousie', false),
                     `${s.open} offen · ${s.part} teilweise · ${s.closed} zu`,
-                    `${blinds.length} Rollos · ${this.state.rxData.titel}`,
+                    `${blinds.length} ${blinds.length === 1 ? 'Rollo' : 'Rollos'} · ${this.state.rxData.titel}`,
                 )}
             </React.Fragment>,
             <div
@@ -652,7 +657,7 @@ export default class ZuhauseEtagenPanel extends (window.visRxWidget as typeof Vi
         const devices = this.devices();
         const fn = (d.funktion || 'licht') as PanelFunction;
         let content: React.JSX.Element[];
-        if (!d.grundriss) {
+        if (!this.planData()) {
             content = [
                 <span
                     key="none"

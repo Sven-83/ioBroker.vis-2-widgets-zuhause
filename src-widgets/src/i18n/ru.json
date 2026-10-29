@@ -178,5 +178,20 @@
     "max": "Maximum",
     "step": "Step",
     "presets": "Quick choice",
-    "presets_tip": "Name:value, comma separated"
+    "presets_tip": "Name:value, comma separated",
+    "kopf_label": "Page head",
+    "head_line": "Small line",
+    "head_line_tip": "Small capitals above the title, e.g. the family name",
+    "head_title": "Title",
+    "head_tabs": "Tabs",
+    "head_tabs_tip": "Label:view, comma separated, e.g. Wohnung:Licht-Wohnung, Keller:Licht-Keller",
+    "head_date": "Show date",
+    "head_clock": "Show clock",
+    "legende_label": "Legend",
+    "legend_switch": "Switch",
+    "legend_off": "tap = off",
+    "legend_status": "Status",
+    "legend_warn": "Warning",
+    "legend_co2": "CO₂",
+    "legend_pin": "Off only with PIN"
 }

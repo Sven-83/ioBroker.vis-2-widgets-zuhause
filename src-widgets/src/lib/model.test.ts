@@ -8,6 +8,8 @@ import {
     formatNumber,
     formatValue,
     hasDiag,
+    headDate,
+    headTime,
     isActive,
     isOn,
     isStale,
@@ -15,6 +17,7 @@ import {
     noReception,
     notesLine,
     parseJsonArray,
+    parseTabs,
     pinKey,
     planDate,
     standShort,
@@ -160,6 +163,22 @@ describe('weather', () => {
         assert.equal(dayLabel(2, wed, 'de'), 'FREITAG');
         assert.equal(dayLabel(4, wed, 'de'), 'SONNTAG');
         assert.equal(dayLabel(2, wed, 'en'), 'FRIDAY');
+    });
+    it('page head date and clock', () => {
+        const d = new Date(2026, 9, 28, 9, 5);
+        assert.equal(headDate(d, 'de'), 'Mi, 28.10.26');
+        assert.equal(headDate(d, 'en'), 'Wed, 28.10.26');
+        assert.equal(headDate(new Date(2027, 0, 3), 'de'), 'So, 03.01.27');
+        assert.equal(headTime(d), '09:05');
+        assert.equal(headTime(new Date(2026, 9, 28, 23, 59)), '23:59');
+    });
+    it('page head tabs', () => {
+        assert.deepEqual(parseTabs('Wohnung:Licht-Wohnung, Keller : Licht-Keller'), [
+            { label: 'Wohnung', view: 'Licht-Wohnung' },
+            { label: 'Keller', view: 'Licht-Keller' },
+        ]);
+        assert.deepEqual(parseTabs('kaputt, :ohne, Garten:'), []);
+        assert.deepEqual(parseTabs(undefined), []);
     });
     it('every weather icon exists', () => {
         for (const code of [0, 2, 3, 45, 61, 73, 95]) {

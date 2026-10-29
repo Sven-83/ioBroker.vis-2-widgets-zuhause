@@ -54,7 +54,9 @@
                     "ZuhauseKarte",
                     "ZuhauseGrundriss",
                     "ZuhauseEtagenPanel",
-                    "ZuhauseKlima"
+                    "ZuhauseKlima",
+                    "ZuhauseKopf",
+                    "ZuhauseLegende"
                 ]
             }
         },

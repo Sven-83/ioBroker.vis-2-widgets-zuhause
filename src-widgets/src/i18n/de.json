@@ -178,5 +178,20 @@
     "max": "Maximum",
     "step": "Schritt",
     "presets": "Schnellwahl",
-    "presets_tip": "Name:Wert, mit Komma getrennt"
+    "presets_tip": "Name:Wert, mit Komma getrennt",
+    "kopf_label": "Kopfzeile",
+    "head_line": "Oberzeile",
+    "head_line_tip": "Kleine Zeile über dem Titel, z. B. Familienname",
+    "head_title": "Titel",
+    "head_tabs": "Reiter",
+    "head_tabs_tip": "Name:View, mit Komma getrennt, z. B. Wohnung:Licht-Wohnung, Keller:Licht-Keller",
+    "head_date": "Datum zeigen",
+    "head_clock": "Uhr zeigen",
+    "legende_label": "Legende",
+    "legend_switch": "Schalter",
+    "legend_off": "tippen = aus",
+    "legend_status": "Status",
+    "legend_warn": "Warnung",
+    "legend_co2": "CO₂",
+    "legend_pin": "Aus nur mit PIN"
 }

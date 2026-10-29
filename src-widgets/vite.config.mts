@@ -20,6 +20,8 @@ export default {
                 './ZuhauseGrundriss': './src/widgets/ZuhauseGrundriss',
                 './ZuhauseEtagenPanel': './src/widgets/ZuhauseEtagenPanel',
                 './ZuhauseKlima': './src/widgets/ZuhauseKlima',
+                './ZuhauseKopf': './src/widgets/ZuhauseKopf',
+                './ZuhauseLegende': './src/widgets/ZuhauseLegende',
                 './translations': './src/translations',
             },
             remotes: {},

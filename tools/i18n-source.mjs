@@ -227,6 +227,23 @@ const T = {
     step: ['Step', 'Schritt'],
     presets: ['Quick choice', 'Schnellwahl'],
     presets_tip: ['Name:value, comma separated', 'Name:Wert, mit Komma getrennt'],
+
+    kopf_label: ['Page head', 'Kopfzeile'],
+    head_line: ['Small line', 'Oberzeile'],
+    head_line_tip: ['Small capitals above the title, e.g. the family name', 'Kleine Zeile über dem Titel, z. B. Familienname'],
+    head_title: ['Title', 'Titel'],
+    head_tabs: ['Tabs', 'Reiter'],
+    head_tabs_tip: ['Label:view, comma separated, e.g. Wohnung:Licht-Wohnung, Keller:Licht-Keller', 'Name:View, mit Komma getrennt, z. B. Wohnung:Licht-Wohnung, Keller:Licht-Keller'],
+    head_date: ['Show date', 'Datum zeigen'],
+    head_clock: ['Show clock', 'Uhr zeigen'],
+
+    legende_label: ['Legend', 'Legende'],
+    legend_switch: ['Switch', 'Schalter'],
+    legend_off: ['tap = off', 'tippen = aus'],
+    legend_status: ['Status', 'Status'],
+    legend_warn: ['Warning', 'Warnung'],
+    legend_co2: ['CO₂', 'CO₂'],
+    legend_pin: ['Off only with PIN', 'Aus nur mit PIN'],
 };
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'src-widgets', 'src', 'i18n');

@@ -239,6 +239,39 @@ export function dayLabel(offset: number, today: Date, lang: string): string {
     return (WEEKDAYS[de ? 'de' : 'en'] || WEEKDAYS.de)[d.getDay()];
 }
 
+const SHORT_DAYS: Record<string, string[]> = {
+    de: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
+    en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+};
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+/** Date of the page head: "Mi, 28.10.26" */
+export function headDate(date: Date, lang: string): string {
+    const day = (lang === 'en' ? SHORT_DAYS.en : SHORT_DAYS.de)[date.getDay()];
+    return `${day}, ${pad2(date.getDate())}.${pad2(date.getMonth() + 1)}.${pad2(date.getFullYear() % 100)}`;
+}
+
+export interface HeadTab {
+    label: string;
+    view: string;
+}
+
+/** Tabs of the page head: "Wohnung:Licht-Wohnung, Keller:Licht-Keller" */
+export function parseTabs(text: unknown): HeadTab[] {
+    return str(text)
+        .split(/[,;\n]+/)
+        .map(part => {
+            const i = part.indexOf(':');
+            return i > 0 ? { label: part.slice(0, i).trim(), view: part.slice(i + 1).trim() } : null;
+        })
+        .filter((tab): tab is HeadTab => !!tab && !!tab.label && !!tab.view);
+}
+
+/** Clock of the page head: "12:29" */
+export function headTime(date: Date): string {
+    return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
 // ---------------------------------------------------------------- values
 
 /** Number with fixed decimals and the decimal comma of the language; "—" without a value */

@@ -96,6 +96,13 @@ Die PIN steht nie im Browser. Fehlt das PIN-Widget auf der Seite, öffnet die Ka
   - Hintergrund mit bis zu drei Gruppentiteln.
   - Die Position der Gruppen 2 und 3 wird in px von oben angegeben; dort liegt die Trennlinie.
   - Die Kacheln legt man im Editor oben drauf.
+- **Kopfzeile:**
+  - Links eine kleine Oberzeile (z. B. Familienname) und der Seitentitel, rechts Datum und Uhr.
+  - Die Uhr springt zur vollen Minute um.
+  - „Reiter“ zeigt Knöpfe zum Wechseln der View, z. B. `Wohnung:Licht-Wohnung, Keller:Licht-Keller`. Der Reiter der eigenen View ist hell.
+- **Legende:**
+  - Eine Zeile mit den Zeichen der Kacheln: Schalter, tippen = aus, Status, Warnung, CO₂, PIN.
+  - Jeder Eintrag lässt sich abschalten.
 
 ## Grundriss
 
@@ -167,7 +174,7 @@ Ein vollständiges Beispiel mit erfundenem Plan liegt in [`docs/beispiel`](../be
 
 ## Etagen-Panel
 
-Die Seitenleiste neben dem Grundriss. Im Feld „Grundriss-Widget“ den Plan wählen; das Panel nutzt dessen Geräteliste.
+Die Seitenleiste neben dem Grundriss. Im Feld „Grundriss-Widget“ den Plan wählen; das Panel nutzt dessen Geräteliste. Bleibt das Feld leer (oder passt die ID nach einem View-Import nicht mehr), nimmt das Panel den einzigen Grundriss der eigenen View.
 
 | Funktion | Inhalt |
 |---|---|
