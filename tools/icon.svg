@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="320" height="320">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#232325"/>
+  <rect x="9" y="9" width="21" height="21" rx="5" fill="#f2c14e"/>
+  <rect x="34" y="9" width="21" height="21" rx="5" fill="#183323" stroke="#3f8f57" stroke-width="1.5"/>
+  <rect x="9" y="34" width="21" height="21" rx="5" fill="#333338" stroke="#44444a" stroke-width="1"/>
+  <rect x="34.75" y="34.75" width="19.5" height="19.5" rx="5" fill="none" stroke="#4f4f56" stroke-width="1.5" stroke-dasharray="3 2.4"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9">
+    <path transform="translate(12.5 12.5) scale(.58)" stroke="#2a2108" d="M3 11l9-7 9 7 M5 9.5V21h14V9.5 M10 21v-6h4v6"/>
+    <path transform="translate(37.5 12.5) scale(.58)" stroke="#9fe0b2" d="M9 18h6 M10 21h4 M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>
+    <path transform="translate(12.5 37.5) scale(.58)" stroke="#cfccc3" d="M9 17v-4a3 3 0 0 1 6 0v4z M12 4v2 M6 7l1.4 1.4 M18 7l-1.4 1.4 M4 13h2 M18 13h2 M7 20h10"/>
+    <path transform="translate(37.5 37.5) scale(.58)" stroke="#a3a19a" d="M4 4h16v16H4z M4 9h16 M12 9v11"/>
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+{
+    "name": "iobroker.vis-2-widgets-zuhause-src",
+    "private": true,
+    "version": "0.1.0",
+    "description": "VIS-2 widget set zuhause (built into ../widgets/vis-2-widgets-zuhause)",
+    "license": "MIT",
+    "scripts": {
+        "start": "vite --port 4173 --strictPort",
+        "build": "tsc && vite build",
+        "check": "tsc",
+        "lint": "eslint --max-warnings 0 .",
+        "test": "tsx --test src/**/*.test.ts"
+    },
+    "devDependencies": {
+        "@iobroker/gui-components": "~10.3.11",
+        "@iobroker/types": "~7.2.5",
+        "@iobroker/types-vis-2": "~2.20.1",
+        "@module-federation/vite": "~1.23.5",
+        "@mui/material": "~9.5.0",
+        "@types/node": "^26.6.5",
+        "@types/react": "~19.3.0",
+        "@types/react-dom": "~19.3.0",
+        "@vitejs/plugin-react": "~6.1.2",
+        "react": "~19.3.1",
+        "react-dom": "~19.3.1",
+        "tsx": "^4.23.15",
+        "typescript": "~7.0.2",
+        "vite": "8.3.4"
+    }
+}

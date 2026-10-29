@@ -1,0 +1,45 @@
+{
+    "name": "iobroker.vis-2-widgets-zuhause",
+    "version": "0.1.0",
+    "description": "VIS-2 widget set for a wall tablet: tiles, PIN dialog, weather, value card, school substitution plan",
+    "author": {
+        "name": "Sven-83",
+        "email": "276080681+Sven-83@users.noreply.github.com"
+    },
+    "homepage": "https://github.com/Sven-83/ioBroker.vis-2-widgets-zuhause",
+    "license": "MIT",
+    "keywords": [
+        "ioBroker",
+        "vis-2",
+        "widgets",
+        "visualization"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Sven-83/ioBroker.vis-2-widgets-zuhause.git"
+    },
+    "engines": {
+        "node": ">=20"
+    },
+    "main": "widgets/vis-2-widgets-zuhause/customWidgets.js",
+    "files": [
+        "admin/",
+        "widgets/",
+        "io-package.json",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "npm --prefix src-widgets run build && node tools/copy-widgets.mjs",
+        "check": "npm --prefix src-widgets run check",
+        "lint": "npm --prefix src-widgets run lint",
+        "test": "npm --prefix src-widgets test",
+        "npm": "npm i && npm --prefix src-widgets i"
+    },
+    "devDependencies": {
+        "@iobroker/eslint-config": "^2.3.4",
+        "typescript": "~5.9.3"
+    },
+    "bugs": {
+        "url": "https://github.com/Sven-83/ioBroker.vis-2-widgets-zuhause/issues"
+    }
+}

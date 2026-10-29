@@ -1,0 +1,63 @@
+{
+    "common": {
+        "name": "vis-2-widgets-zuhause",
+        "version": "0.1.0",
+        "news": {
+            "0.1.0": {
+                "en": "First version: tile, PIN dialog, weather, value card, school list, card",
+                "de": "Erste Version: Kachel, PIN-Dialog, Wetter, Werte-Karte, Schul-Liste, Karte"
+            }
+        },
+        "titleLang": {
+            "en": "VIS-2 widgets zuhause",
+            "de": "VIS-2 Widgets zuhause"
+        },
+        "desc": {
+            "en": "Tiles and cards for a wall tablet (dark design, touch)",
+            "de": "Kacheln und Karten für ein Wand-Tablet (dunkles Design, Touch)"
+        },
+        "authors": ["Sven-83 <276080681+Sven-83@users.noreply.github.com>"],
+        "keywords": ["vis-2", "widgets", "tablet", "dashboard"],
+        "license": "MIT",
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "platform": "Javascript/Node.js",
+        "icon": "zuhause.png",
+        "extIcon": "https://raw.githubusercontent.com/Sven-83/ioBroker.vis-2-widgets-zuhause/main/admin/zuhause.png",
+        "readme": "https://github.com/Sven-83/ioBroker.vis-2-widgets-zuhause/blob/main/README.md",
+        "enabled": true,
+        "loglevel": "info",
+        "mode": "once",
+        "onlyWWW": true,
+        "adminUI": {
+            "config": "none"
+        },
+        "tier": 3,
+        "type": "visualization-widgets",
+        "connectionType": "local",
+        "dataSource": "push",
+        "dependencies": [{ "vis-2": ">=2.9.0" }],
+        "visWidgets": {
+            "vis2Zuhause": {
+                "i18n": "component",
+                "name": "vis2Zuhause",
+                "url": "vis-2-widgets-zuhause/customWidgets.js",
+                "bundlerType": "module",
+                "components": [
+                    "ZuhauseKachel",
+                    "ZuhausePin",
+                    "ZuhauseWetter",
+                    "ZuhauseWerte",
+                    "ZuhauseSchule",
+                    "ZuhauseKarte"
+                ]
+            }
+        },
+        "restartAdapters": ["vis-2"]
+    },
+    "native": {},
+    "objects": [],
+    "instanceObjects": []
+}
