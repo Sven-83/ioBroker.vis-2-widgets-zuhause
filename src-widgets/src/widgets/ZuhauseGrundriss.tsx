@@ -172,8 +172,21 @@ export default class ZuhauseGrundriss extends (window.visRxWidget as typeof VisR
         }
     }
 
+    /**
+     * JSON field as stored in the project. VIS-2 treats "{ ... }" in text attributes as a binding and
+     * replaces it, which breaks compact JSON like [{ "typ": "lampe" }]; the raw project data is unchanged.
+     */
+    private rawField(name: 'geraete' | 'zonen'): unknown {
+        const views = this.props.context.views as unknown as Record<
+            string,
+            { widgets?: Record<string, { data?: Record<string, unknown> }> } | undefined
+        >;
+        const raw = views[this.props.view]?.widgets?.[this.props.id]?.data?.[name];
+        return raw !== undefined ? raw : this.state.rxData[name];
+    }
+
     private devices(): PlanDevice[] {
-        return parseDevices(this.state.rxData.geraete).devices;
+        return parseDevices(this.rawField('geraete')).devices;
     }
 
     /** Loads the plan and subscribes the data points of the device list */
@@ -256,7 +269,7 @@ export default class ZuhauseGrundriss extends (window.visRxWidget as typeof VisR
 
     private renderGlow(plan: PlanSvg, devices: PlanDevice[], motion: boolean): React.JSX.Element | null {
         const val = this.watcher?.val ?? ((): unknown => undefined);
-        const zones = parseZones(this.state.rxData.zonen);
+        const zones = parseZones(this.rawField('zonen'));
         const byZone = new Map<string, Glow[]>();
         for (const d of devices) {
             const g = deviceGlow(d, val, plan.viewBox.w);
@@ -408,7 +421,7 @@ export default class ZuhauseGrundriss extends (window.visRxWidget as typeof VisR
         super.renderWidgetBody(props);
         const d = this.state.rxData;
         const plan = this.state.zhPlan;
-        const { devices, errors } = parseDevices(d.geraete);
+        const { devices, errors } = parseDevices(this.rawField('geraete'));
         const val = this.watcher?.val ?? ((): unknown => undefined);
         const lang = ZuhauseGrundriss.getLanguage();
         const levelClass = motionClass(d.animationStufe, d.nachtAus, new Date());

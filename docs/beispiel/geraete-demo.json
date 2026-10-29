@@ -1,0 +1,10 @@
+[
+  { "typ": "lampe", "raum": "kueche", "x": 110, "y": 85, "oid": "0_userdata.0.demo.licht_kueche" },
+  { "typ": "dimmer", "name": "Diele", "raum": "diele", "x": 275, "y": 200, "oid": "0_userdata.0.demo.licht_diele", "oidHelligkeit": "0_userdata.0.demo.licht_diele_level" },
+  { "typ": "lampe", "raum": "wohnen", "x": 420, "y": 120, "oid": "0_userdata.0.demo.licht_wohnen1", "oidEmpfang": "0_userdata.0.demo.licht_wohnen1_rssi" },
+  { "typ": "lampe", "raum": "wohnen", "x": 520, "y": 300, "oid": "0_userdata.0.demo.licht_wohnen2" },
+  { "typ": "lampe", "raum": "bad", "x": 110, "y": 285, "oid": "0_userdata.0.demo.licht_bad" },
+  { "typ": "fenster", "name": "Fenster Bad", "raum": "bad", "x": 0, "y": 280, "oid": "0_userdata.0.demo.fenster_bad", "oidBatterie": "0_userdata.0.demo.fenster_bad_batterie" },
+  { "typ": "rollo", "name": "Wohnen Süd", "raum": "wohnen", "x": 480, "y": 400, "oid": "", "oidPosition": "0_userdata.0.demo.rollo_wohnen" },
+  { "typ": "rauchmelder", "raum": "diele", "x": 275, "y": 60, "oid": "", "oidRauch": "0_userdata.0.demo.rauch_diele", "oidSirene": "0_userdata.0.demo.sirene_diele" }
+]
