@@ -23,7 +23,7 @@ interface AnimatedIcon {
 const CO2 = 'var(--co2, #4aa3ff)';
 
 /** Animation per icon (base name); `on` is the value the tile animates for */
-function animated(name: string, opts: { co2?: boolean }): AnimatedIcon | null {
+function animated(name: string, opts: { co2?: boolean; on?: boolean }): AnimatedIcon | null {
     switch (name) {
         case 'waschmaschine':
             return {
@@ -134,6 +134,18 @@ function animated(name: string, opts: { co2?: boolean }): AnimatedIcon | null {
                 parts: [{ d: 'M5 9h14 M5 12h14 M5 15h14', cls: 'zh-a-slats' }],
             };
         case 'rauchmelder':
+            if (opts.on) {
+                // smoke detected: smoke rises
+                return {
+                    base: 'M4 6a8 3 0 1 0 16 0a8 3 0 1 0-16 0 M4 6v3a8 3 0 0 0 16 0V6',
+                    parts: [
+                        { d: 'M8.5 15c-1 1.5 1 2.5 0 4', cls: 'zh-a-rise' },
+                        { d: 'M12 15c-1 1.5 1 2.5 0 4', cls: 'zh-a-rise zh-d2' },
+                        { d: 'M15.5 15c-1 1.5 1 2.5 0 4', cls: 'zh-a-rise zh-d3' },
+                    ],
+                };
+            }
+            // ok: green LED flashes every 4 s
             return {
                 base: ICONS.rauchmelder,
                 parts: [{ d: '', circle: [12, 9, 1.3], cls: 'zh-a-led', style: { fill: '#6fe08a', stroke: 'none' } }],
@@ -213,7 +225,7 @@ export function Icon(props: IconProps): React.JSX.Element {
             </svg>
         );
     }
-    const anim = animate ? animated(name, { co2 }) : null;
+    const anim = animate ? animated(name, { co2, on }) : null;
     // window and post only animate in their warning variant; the rest in the "on" variant
     const showAnim = anim && (ANIMATE_WHEN_OFF.has(name) ? !on : true);
     if (anim && showAnim) {

@@ -51,7 +51,10 @@
                     "ZuhauseWetter",
                     "ZuhauseWerte",
                     "ZuhauseSchule",
-                    "ZuhauseKarte"
+                    "ZuhauseKarte",
+                    "ZuhauseGrundriss",
+                    "ZuhauseEtagenPanel",
+                    "ZuhauseKlima"
                 ]
             }
         },

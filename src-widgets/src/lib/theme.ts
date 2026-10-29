@@ -85,6 +85,8 @@ ${face('Zuhause Barlow Condensed', 600, condensed600)}
 @keyframes zh-led{0%,6%{opacity:1}8%,100%{opacity:.15}}
 @keyframes zh-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-2px)}40%{transform:translateX(2px)}60%{transform:translateX(-1px)}80%{transform:translateX(1px)}}
 @keyframes zh-spinner{to{transform:rotate(360deg)}}
+@keyframes zh-breathe{0%,100%{opacity:.82}50%{opacity:1}}
+.zh-a-breathe{animation:zh-breathe 4s ease-in-out infinite}
 @keyframes zh-flash{0%{opacity:.25}35%{opacity:1}55%{opacity:.5}100%{opacity:1}}
 .zh-a-flash{animation:zh-flash 1.4s ease-out 1}
 @keyframes zh-toast{0%{transform:translate(-50%,8px);opacity:0}100%{transform:translate(-50%,0);opacity:1}}

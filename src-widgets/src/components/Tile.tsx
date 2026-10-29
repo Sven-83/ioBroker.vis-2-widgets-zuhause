@@ -62,12 +62,12 @@ export interface TileProps {
     onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
-const WLAN_OFF = 'M2 8.5a15 15 0 0 1 20 0 M5 12a10 10 0 0 1 14 0 M8.5 15.5a5 5 0 0 1 7 0 M12 19h.01 M3 3l18 18';
+export const WLAN_OFF = 'M2 8.5a15 15 0 0 1 20 0 M5 12a10 10 0 0 1 14 0 M8.5 15.5a5 5 0 0 1 7 0 M12 19h.01 M3 3l18 18';
 const BATTERY_LOW = 'M3 7h15v10H3z M18 10h2.5v4H18 M6 10v4';
 const POWER = 'M12 3v8 M6.5 6.5a8 8 0 1 0 11 0';
 const LOCK = 'M5 11h14v11H5z M8 11V8a4 4 0 0 1 8 0v3h-2V8a2 2 0 0 0-4 0v3z';
 
-function DiagBadge({ d, right, title }: { d: string; right: number; title: string }): React.JSX.Element {
+export function DiagBadge({ d, right, title }: { d: string; right: number; title: string }): React.JSX.Element {
     return (
         <span
             className="zh-a-blink"
