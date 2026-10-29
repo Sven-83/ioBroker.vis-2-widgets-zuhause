@@ -18,6 +18,9 @@ German documentation: [docs/de/README.md](docs/de/README.md).
 | Werte-Karte | list of values (temperatures, energy), optional footer and tap target view, placeholder variant |
 | Schul-Liste | substitution plan of selected classes (JSON data points written by a script) |
 | Karte | card background with group titles and divider lines |
+| Grundriss | floor plan SVG with device pins (JSON list), light glow per zone, blind daylight, red tint of open windows; brightness and height popups |
+| Etagen-Panel | side panel of a floor plan: light, sockets, blinds, security |
+| Klima | floor heating tile with setpoint popup |
 
 The colours come from CSS variables (`--card`, `--sw-on`, …) with dark defaults, so a project CSS can
 theme all widgets at once.
