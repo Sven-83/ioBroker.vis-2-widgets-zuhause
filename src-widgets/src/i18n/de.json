@@ -27,6 +27,8 @@
     "oid_tip": "Ein „!“ davor kehrt den Wert um, z. B. !zigbee.0.fenster.contact (true = zu)",
     "oid_write": "Schreiben auf (optional)",
     "oid_write_tip": "Nur wenn Befehle auf einen anderen Datenpunkt gehen als der Status",
+    "on_values": "An, wenn Wert (optional)",
+    "on_values_tip": "Kommagetrennt, für Text-Zustände: z. B. Run für Home Connect (…OperationState.Run). Ready/Inactive (Standby) zählen dann als aus.",
     "label": "Beschriftung",
     "label_warn": "Beschriftung bei Warnung",
     "warn_at_true": "Warnung bei true",

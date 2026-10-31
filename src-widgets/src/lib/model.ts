@@ -34,6 +34,28 @@ export function isOn(val: unknown): boolean {
     return false;
 }
 
+/**
+ * "On when value is …": comma list of values for text states such as Home Connect
+ * (BSH.Common.EnumType.OperationState.Run). An entry matches the whole value or its last part after the
+ * last dot, case-insensitive; so "Run" is on, "Ready" / "Inactive" (standby) are off.
+ * Empty list -> undefined (the tile uses isOn).
+ */
+export function matchesValue(val: unknown, list: string | undefined): boolean | undefined {
+    const wanted = (list || '')
+        .split(',')
+        .map(w => w.trim().toLowerCase())
+        .filter(Boolean);
+    if (!wanted.length) {
+        return undefined;
+    }
+    const text = str(val).trim().toLowerCase();
+    if (!text) {
+        return false;
+    }
+    const last = text.slice(text.lastIndexOf('.') + 1);
+    return wanted.includes(text) || wanted.includes(last);
+}
+
 export function asTileType(typ: unknown): TileType {
     return TILE_TYPES.includes(typ as TileType) ? (typ as TileType) : 'schalter';
 }

@@ -27,6 +27,8 @@
     "oid_tip": "A \"!\" in front inverts the value, e.g. !zigbee.0.window.contact (true = closed)",
     "oid_write": "Write to (optional)",
     "oid_write_tip": "Only if commands go to another data point than the status",
+    "on_values": "On when value is (optional)",
+    "on_values_tip": "Comma separated, for text states: e.g. Run for Home Connect (…OperationState.Run). Ready/Inactive (standby) then count as off.",
     "label": "Label",
     "label_warn": "Label when warning",
     "warn_at_true": "Warn at true",

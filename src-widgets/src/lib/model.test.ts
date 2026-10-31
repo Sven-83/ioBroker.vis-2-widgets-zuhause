@@ -12,6 +12,7 @@ import {
     headTime,
     isActive,
     isOn,
+    matchesValue,
     isStale,
     lowBattery,
     noReception,
@@ -41,6 +42,23 @@ describe('isOn', () => {
         assert.equal(isOn('false'), false);
         assert.equal(isOn(null), false);
         assert.equal(isOn(undefined), false);
+    });
+});
+
+describe('matchesValue', () => {
+    it('matches Home Connect enum texts by their last part, case-insensitive', () => {
+        const run = 'BSH.Common.EnumType.OperationState.Run';
+        assert.equal(matchesValue(run, 'Run'), true);
+        assert.equal(matchesValue(run, 'pause, run'), true);
+        assert.equal(matchesValue('BSH.Common.EnumType.OperationState.Ready', 'Run'), false);
+        assert.equal(matchesValue('BSH.Common.EnumType.OperationState.Inactive', 'Run, DelayedStart'), false);
+        assert.equal(matchesValue('heating', 'Heating'), true);
+        assert.equal(matchesValue(2, '2'), true);
+    });
+    it('is undefined without a list and false without a value', () => {
+        assert.equal(matchesValue('x', ''), undefined);
+        assert.equal(matchesValue('x', ' , '), undefined);
+        assert.equal(matchesValue(null, 'Run'), false);
     });
 });
 

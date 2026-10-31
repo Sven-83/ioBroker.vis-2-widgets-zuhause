@@ -26,6 +26,7 @@ import {
     isActive,
     isOn,
     isStale,
+    matchesValue,
     isWarning,
     str,
     lowBattery,
@@ -55,6 +56,7 @@ interface KachelRxData {
     typ: string;
     oid: string;
     oidSchreiben: string;
+    anWerte: string;
     label: string;
     labelWarnung: string;
     warnBei: boolean;
@@ -154,6 +156,7 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
                             tooltip: 'oid_write_tip',
                             hidden: typeIs('schalter', 'schalter-pin', 'status-aus'),
                         },
+                        { name: 'anWerte', type: 'text', label: 'on_values', tooltip: 'on_values_tip' },
                         { name: 'label', type: 'text', label: 'label' },
                         { name: 'labelWarnung', type: 'text', label: 'label_warn', hidden: typeIs('status-warnung') },
                         {
@@ -367,7 +370,8 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
     }
 
     private get on(): boolean {
-        return isOn(this.val(this.state.rxData.oid));
+        const val = this.val(this.state.rxData.oid);
+        return matchesValue(val, this.state.rxData.anWerte) ?? isOn(val);
     }
 
     // ---------------------------------------------------------------- actions
