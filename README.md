@@ -4,7 +4,7 @@ VIS-2 widget set for a wall tablet in a dark design: tiles with five behaviours,
 weather, value card, school substitution plan and card backgrounds.
 
 Install from GitHub (no npm release): `iob url https://github.com/Sven-83/ioBroker.vis-2-widgets-zuhause`,
-then restart `vis-2`.
+then `iob add vis-2-widgets-zuhause` (VIS-2 only loads widget sets that have an instance) and restart `vis-2`.
 
 German documentation: [docs/de/README.md](docs/de/README.md).
 
