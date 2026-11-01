@@ -119,6 +119,7 @@ Die PIN steht nie im Browser. Fehlt das PIN-Widget auf der Seite, öffnet die Ka
   - Links eine kleine Oberzeile (z. B. Familienname) und der Seitentitel, rechts Datum und Uhr.
   - Die Uhr springt zur vollen Minute um.
   - „Reiter“ zeigt Knöpfe zum Wechseln der View, z. B. `Wohnung:Licht-Wohnung, Keller:Licht-Keller`. Der Reiter der eigenen View ist hell.
+  - Liegt die View in einem Seiten-Wechsel (siehe unten), wechseln die Reiter dort drin und die übrige Seite bleibt.
 - **Legende:**
   - Eine Zeile mit den Zeichen der Kacheln: Schalter, tippen = aus, Status, Warnung, CO₂, PIN.
   - Jeder Eintrag lässt sich abschalten.
@@ -190,6 +191,15 @@ Das Widget **Grundriss** zeigt einen Plan mit Geräte-Pins und dem Lichtschein j
 **Pin-Größe:** 1 entspricht dem Entwurf, bei dem der Plan 884 px breit ist. Die Pins wachsen und schrumpfen mit dem Plan.
 
 Ein vollständiges Beispiel mit erfundenem Plan liegt in [`docs/beispiel`](../beispiel).
+
+## Seiten-Wechsel
+
+Für Seiten in einem Rahmen wie dem Jäger-Menü. Ohne das Widget verlässt ein Reiter der Kopfzeile den Rahmen, weil er die ganze View wechselt.
+
+- Eine eigene View anlegen (z. B. `Licht`) und darin nur dieses Widget in voller Größe platzieren.
+- „Start-View“ ist die Seite, die zuerst erscheint, z. B. `Licht-Wohnung`.
+- Der Menüpunkt zeigt die View `Licht`. Tippt man in der Kopfzeile auf „Keller“, erscheint `Licht-Keller` im Widget, Menü und Rahmen bleiben.
+- Wird die Seite einzeln geöffnet (ohne Seiten-Wechsel), wechseln die Reiter wie bisher die ganze View.
 
 ## Etagen-Panel
 

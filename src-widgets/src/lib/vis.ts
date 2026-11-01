@@ -79,3 +79,31 @@ export function requestPin(req: PinRequest): boolean {
     const ev = new CustomEvent<PinRequest>(PIN_EVENT, { detail: req, cancelable: true });
     return !window.dispatchEvent(ev);
 }
+
+// ---------------------------------------------------------------- page switch inside a frame
+
+/**
+ * Event a tab of the head line sends before it changes the view. A ZuhauseSeiten widget that currently shows
+ * the view `von` answers with preventDefault() and shows `nach` itself, so a page embedded in a frame
+ * (Jäger menu) stays in that frame. Without such a widget the tab changes the whole view as before.
+ */
+export const TAB_EVENT = 'zuhause-reiter';
+
+export interface TabRequest {
+    von: string;
+    nach: string;
+}
+
+/** true = a ZuhauseSeiten widget took over the switch */
+export function requestTab(req: TabRequest): boolean {
+    const ev = new CustomEvent<TabRequest>(TAB_EVENT, { detail: req, cancelable: true });
+    return !window.dispatchEvent(ev);
+}
+
+/** Decision of a ZuhauseSeiten widget: the view to show next, or null when the request is not for it */
+export function nextPage(current: string, req: TabRequest | undefined): string | null {
+    if (!req || !req.nach || req.von !== current || req.nach === current) {
+        return null;
+    }
+    return req.nach;
+}

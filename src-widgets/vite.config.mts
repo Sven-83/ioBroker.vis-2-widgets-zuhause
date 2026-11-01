@@ -22,6 +22,7 @@ export default {
                 './ZuhauseKlima': './src/widgets/ZuhauseKlima',
                 './ZuhauseKopf': './src/widgets/ZuhauseKopf',
                 './ZuhauseLegende': './src/widgets/ZuhauseLegende',
+                './ZuhauseSeiten': './src/widgets/ZuhauseSeiten',
                 './translations': './src/translations',
             },
             remotes: {},

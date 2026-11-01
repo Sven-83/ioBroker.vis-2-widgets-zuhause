@@ -23,6 +23,7 @@ German documentation: [docs/de/README.md](docs/de/README.md).
 | Klima | floor heating tile with setpoint popup |
 | Kopfzeile | page head: small line, title, view tabs, date and clock |
 | Legende | one line legend of the tile signs |
+| Seiten-Wechsel | shows a view and switches it when a tab of the head line is tapped, so pages stay inside a frame (Jäger menu) |
 
 The colours come from CSS variables (`--card`, `--sw-on`, …) with dark defaults, so a project CSS can
 theme all widgets at once.

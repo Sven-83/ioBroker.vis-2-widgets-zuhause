@@ -10,7 +10,7 @@ import type VisRxWidget from '@iobroker/types-vis-2/visRxWidget';
 import { ICONS } from '../lib/icons';
 import { headDate, headTime, parseTabs } from '../lib/model';
 import { ensureStyles, fonts, v } from '../lib/theme';
-import { PREFIX, SET_INFO } from '../lib/vis';
+import { PREFIX, SET_INFO, requestTab } from '../lib/vis';
 
 interface KopfRxData {
     oberzeile: string;
@@ -153,7 +153,10 @@ export default class ZuhauseKopf extends (window.visRxWidget as typeof VisRxWidg
                                     aria-current={active ? 'page' : undefined}
                                     onClick={() => {
                                         if (!active && !this.props.editMode) {
-                                            this.props.context.changeView(tab.view);
+                                            // inside a ZuhauseSeiten widget (Jäger frame) the page switches there
+                                            if (!requestTab({ von: this.props.view, nach: tab.view })) {
+                                                this.props.context.changeView(tab.view);
+                                            }
                                         }
                                     }}
                                     style={{

@@ -196,5 +196,9 @@
     "legend_status": "Status",
     "legend_warn": "Warning",
     "legend_co2": "CO₂",
-    "legend_pin": "Off only with PIN"
+    "legend_pin": "Off only with PIN",
+    "seiten_label": "Page switch",
+    "pages_start": "Start view",
+    "pages_start_tip": "View shown first. The tabs of the head line in this view then switch inside this widget.",
+    "pages_empty": "Choose a start view"
 }

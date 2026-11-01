@@ -196,5 +196,9 @@
     "legend_status": "Status",
     "legend_warn": "Warnung",
     "legend_co2": "CO₂",
-    "legend_pin": "Aus nur mit PIN"
+    "legend_pin": "Aus nur mit PIN",
+    "seiten_label": "Seiten-Wechsel",
+    "pages_start": "Start-View",
+    "pages_start_tip": "View, die zuerst gezeigt wird. Die Reiter der Kopfzeile in dieser View wechseln dann hier drin.",
+    "pages_empty": "Start-View wählen"
 }
