@@ -328,8 +328,11 @@ export function tapAction(d: PlanDevice, val: ValueOf): PinAction {
             return id ? { kind: 'write', oid: id, value: d.invertieren ? 100 - next : next } : { kind: 'none' };
         }
         case 'tor':
-            // "Tippen öffnet bzw. schließt" (hand-over 11.2b); written value = the wanted state
-            return target ? { kind: 'write', oid: target, value: d.invertieren ? on : !on } : { kind: 'none' };
+            // Only with an explicit write data point: the oid of a gate is usually its end switch
+            // (a sensor), and a gate must never move by accident. Written value = the wanted state.
+            return d.oidSchreiben
+                ? { kind: 'write', oid: d.oidSchreiben, value: d.invertieren ? on : !on }
+                : { kind: 'none' };
         default:
             return { kind: 'none' };
     }

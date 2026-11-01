@@ -199,15 +199,18 @@ describe('taps', () => {
             value: 75,
         });
     });
-    it('garage gate opens and closes, sensors do nothing', () => {
-        assert.deepEqual(tapAction(dev({ typ: 'tor' }), values({ a: false })), {
+    it('garage gate only shows its state unless a write data point is set, sensors do nothing', () => {
+        // oid = end switch (sensor): a tap must never write to it
+        assert.deepEqual(tapAction(dev({ typ: 'tor' }), values({ a: false })), { kind: 'none' });
+        assert.deepEqual(tapAction(dev({ typ: 'tor' }), values({ a: true })), { kind: 'none' });
+        assert.deepEqual(tapAction(dev({ typ: 'tor', oidSchreiben: 'w' }), values({ a: false })), {
             kind: 'write',
-            oid: 'a',
+            oid: 'w',
             value: true,
         });
-        assert.deepEqual(tapAction(dev({ typ: 'tor', invertieren: true }), values({ a: true })), {
+        assert.deepEqual(tapAction(dev({ typ: 'tor', oidSchreiben: 'w', invertieren: true }), values({ a: true })), {
             kind: 'write',
-            oid: 'a',
+            oid: 'w',
             value: false,
         });
         assert.deepEqual(tapAction(dev({ typ: 'fenster' }), values({ a: true })), { kind: 'none' });

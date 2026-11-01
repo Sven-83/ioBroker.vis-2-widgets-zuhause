@@ -4,7 +4,7 @@
  *
  * Devices come as JSON list with positions in the units of the SVG viewBox, so the coordinates of the
  * drafts can be taken over. Pins and glow scale with the plan. Taps: lights/sockets toggle, blinds
- * open/close, the garage gate opens/closes, sensors only show; long press opens brightness or height.
+ * open/close, the garage gate opens/closes only with its own oidSchreiben, sensors only show; long press opens brightness or height.
  */
 import React from 'react';
 

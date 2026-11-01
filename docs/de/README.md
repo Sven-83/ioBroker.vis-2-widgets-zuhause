@@ -169,7 +169,7 @@ Das Widget **Grundriss** zeigt einen Plan mit Geräte-Pins und dem Lichtschein j
 - **Tippen:**
   - Lampe, Steckdose: an/aus.
   - Rollo: auf/zu.
-  - Garagentor: öffnet bzw. schließt.
+  - Garagentor: nur mit eigenem `oidSchreiben` öffnet bzw. schließt es, sonst nur Anzeige (die `oid` ist meist der Endschalter, ein Tor soll nie aus Versehen fahren).
   - Sensoren: keine Aktion, nur Anzeige.
 - **Gedrückt halten (500 ms):**
   - Dimmer: Helligkeit.
