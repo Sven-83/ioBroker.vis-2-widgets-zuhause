@@ -51,6 +51,11 @@ const ID_FIELDS = [
     'oidEmpfang',
     'oidBatterie',
 ] as const;
+/**
+ * id fields VIS-2 does not subscribe: it strips trailing digits before looking up the field type
+ * ("badgeCo2" -> "badgeCo"), so the widget subscribes them itself
+ */
+const SELF_FIELDS = ['badgeCo2'] as const;
 
 interface KachelRxData {
     typ: string;
@@ -109,6 +114,8 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
     private minuteTimer?: ReturnType<typeof setInterval>;
     /** subscriptions of the ids with "!" */
     private inverted?: StateWatcher;
+    /** ids of SELF_FIELDS, read from the own subscription */
+    private selfIds = new Set<string>();
     /** last raw value of oid, to count changes */
     private lastVal: unknown;
 
@@ -317,7 +324,12 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
     }
 
     private syncInverted(): void {
-        void this.inverted?.watch(invertedIds(ID_FIELDS.map(f => this.state.rxData[f] as string | undefined)));
+        const own = SELF_FIELDS.map(f => this.state.rxData[f]).filter((id): id is string => !!id);
+        this.selfIds = new Set(own);
+        void this.inverted?.watch([
+            ...invertedIds(ID_FIELDS.map(f => this.state.rxData[f] as string | undefined)),
+            ...own,
+        ]);
     }
 
     componentWillUnmount(): void {
@@ -361,7 +373,9 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
         if (!oid) {
             return undefined;
         }
-        return isInverted(oid) ? this.inverted?.snapshot(oid)?.[key] : this.state.values[`${oid}.${key}`];
+        return isInverted(oid) || this.selfIds.has(oid)
+            ? this.inverted?.snapshot(oid)?.[key]
+            : this.state.values[`${oid}.${key}`];
     }
 
     /** Value as the tile sees it ("!" inverted) */
