@@ -622,10 +622,23 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         // the head line only speaks up when the cloud is gone
         const fuss = warn ? h.text : '';
         const solarHeute = Number(this.val('today.solarKwh'));
+        const socRaw = this.val('live.soc');
+        const socN = Number(socRaw);
+        const hatSoc = socRaw !== undefined && socRaw !== null && socRaw !== '' && Number.isFinite(socN);
+        const minSoc = this.minSoc();
+        const akkuSub =
+            f.akkuW > 20
+                ? `lädt ${watt(f.akkuW, lang)}`
+                : f.akkuW < -20
+                  ? `gibt ${watt(-f.akkuW, lang)}`
+                  : hatSoc && socN <= minSoc
+                    ? `an Grenze ${formatNumber(minSoc, 0, lang)} %`
+                    : 'Ruhe';
         // stream between two values; netz: + import flows right → left (into the house)
         const strom = (w: number, c: string, netz = false): React.JSX.Element => {
             const on = Math.abs(w) > 5;
-            const t = Math.max(0.8, 2.6 - Math.log10(Math.max(Math.abs(w), 50) / 50) * 1.1);
+            // slow and calm: 7 s at 50 W … 3.5 s from about 2 kW
+            const t = Math.max(3.5, 7 - Math.log10(Math.max(Math.abs(w), 50) / 50) * 2.2);
             return (
                 <span
                     className={`ze-kf${netz && w > 0 ? ' rev' : ''}`}
@@ -668,7 +681,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                 <span
                     style={{
                         fontFamily: fonts.numbers,
-                        fontSize: 26,
+                        fontSize: 24,
                         fontWeight: 600,
                         lineHeight: 1,
                         whiteSpace: 'nowrap',
@@ -781,7 +794,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                     </span>
                     {this.state.rxData.klickView ? <span style={{ fontSize: 16, color: v('text-2') }}>›</span> : null}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1 }}>
                     {item(
                         'SOLAR',
                         watt(f.solarW, lang),
@@ -789,9 +802,17 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                         Number.isFinite(solarHeute) ? `heute ${kwh(solarHeute, lang)}` : undefined,
                     )}
                     {strom(f.solarW, C.solar)}
-                    {item('WECHSELRICHTER', watt(f.wrW, lang), C.akku, f.wrW > 5 ? 'ins Haus' : 'aus')}
+                    {item(
+                        'AKKU',
+                        hatSoc ? `${formatNumber(socN, 0, lang)} %` : '—',
+                        C.akku,
+                        akkuSub,
+                        hatSoc ? socN : undefined,
+                    )}
                     {strom(f.wrW, C.akku)}
-                    {item('VERBRAUCH', watt(f.hausW, lang), C.haus, 'Haus gesamt')}
+                    {item('WECHSELR.', watt(f.wrW, lang), C.akku, f.wrW > 5 ? 'ins Haus' : 'aus')}
+                    {strom(f.wrW, C.akku)}
+                    {item('VERBRAUCH', watt(f.hausW, lang), C.haus, 'Haus')}
                     {strom(f.netzW, C.netz, true)}
                     {item(
                         f.netzW < 0 ? 'EINSPEISUNG' : 'NETZ',
