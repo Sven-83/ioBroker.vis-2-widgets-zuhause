@@ -58,7 +58,8 @@
                     "ZuhauseKopf",
                     "ZuhauseLegende",
                     "ZuhauseSeiten",
-                    "ZuhauseSauger"
+                    "ZuhauseSauger",
+                    "ZuhauseEnergie"
                 ]
             }
         },

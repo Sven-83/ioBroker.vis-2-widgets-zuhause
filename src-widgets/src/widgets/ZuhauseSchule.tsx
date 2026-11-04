@@ -170,7 +170,7 @@ export default class ZuhauseSchule extends (window.visRxWidget as typeof VisRxWi
                 return;
             }
         }
-        const oid =this.state.rxData[`oidVertretungen${this.state.zhTag}`];
+        const oid = this.state.rxData[`oidVertretungen${this.state.zhTag}`];
         if (!oid || prevState.zhTag !== this.state.zhTag) {
             return;
         }

@@ -202,5 +202,20 @@
     "legend_status": "Status",
     "legend_warn": "Warnung",
     "legend_co2": "CO₂",
-    "legend_pin": "Aus nur mit PIN"
+    "legend_pin": "Aus nur mit PIN",
+    "energie_label": "Energie (BK215)",
+    "energie_page": "Ganze Seite",
+    "energie_card": "Kachel Startseite",
+    "energie_instance": "bk215-Instanz",
+    "energie_instance_tip": "Instanz des Adapters bk215, z. B. bk215.0",
+    "energie_grid": "Netzleistung (W)",
+    "energie_grid_tip": "Zähler-Datenpunkt, + Bezug / − Einspeisung; leer = Zähler aus der Sunlit-App",
+    "energie_history": "Verlaufs-Instanz",
+    "energie_history_tip": "history.0, influxdb.0 …; liefert die Netz- und Ladestand-Kurve von heute",
+    "energie_price": "Strompreis (€/kWh)",
+    "energie_price_tip": "0 = Ersparnis laut Sunlit-App",
+    "energie_minsoc": "Akku leer bei (%)",
+    "energie_forecast": "Solar-Prognose",
+    "energie_forecast_tip": "open-meteo für den Standort aus den ioBroker-Systemeinstellungen, abgeglichen mit dem eigenen Ertrag",
+    "energie_back": "Zurück zu View"
 }

@@ -24,6 +24,7 @@ export default {
                 './ZuhauseLegende': './src/widgets/ZuhauseLegende',
                 './ZuhauseSeiten': './src/widgets/ZuhauseSeiten',
                 './ZuhauseSauger': './src/widgets/ZuhauseSauger',
+                './ZuhauseEnergie': './src/widgets/ZuhauseEnergie',
                 './translations': './src/translations',
             },
             remotes: {},

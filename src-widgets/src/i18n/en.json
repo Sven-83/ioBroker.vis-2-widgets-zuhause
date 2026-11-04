@@ -202,5 +202,20 @@
     "legend_status": "Status",
     "legend_warn": "Warning",
     "legend_co2": "CO₂",
-    "legend_pin": "Off only with PIN"
+    "legend_pin": "Off only with PIN",
+    "energie_label": "Energy (BK215)",
+    "energie_page": "Whole page",
+    "energie_card": "Start page card",
+    "energie_instance": "bk215 instance",
+    "energie_instance_tip": "Instance of the bk215 adapter, e.g. bk215.0",
+    "energie_grid": "Grid power (W)",
+    "energie_grid_tip": "Meter data point, + import / − export; empty = meter of the Sunlit app",
+    "energie_history": "History instance",
+    "energie_history_tip": "history.0, influxdb.0 …; gives today's grid and battery level curve",
+    "energie_price": "Electricity price (€/kWh)",
+    "energie_price_tip": "0 = savings of the Sunlit app",
+    "energie_minsoc": "Battery empty at (%)",
+    "energie_forecast": "Solar forecast",
+    "energie_forecast_tip": "open-meteo for the location of the ioBroker system settings, calibrated with the own yield",
+    "energie_back": "Back to view"
 }
