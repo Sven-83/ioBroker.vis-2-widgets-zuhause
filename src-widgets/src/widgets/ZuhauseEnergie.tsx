@@ -609,37 +609,12 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
     private renderKachel(): React.JSX.Element {
         const lang = ZuhauseEnergie.getLanguage();
         const f = this.live();
-        const soc = this.val('live.soc');
         const h = this.props.editMode ? null : this.hinweis();
         const clickable = !!this.state.rxData.klickView && !this.props.editMode;
-        const now = new Date();
-        const fullAt = Number(this.val('live.fullAt')) || null;
-        const emptyAt = Number(this.val('live.emptyAt')) || null;
-        const solarHeute = Number(this.val('today.solarKwh'));
-        const t = summe([this.heute(now)], Number(this.state.rxData.strompreis) || 0);
-        const socN = Number(soc);
-        const hatSoc = soc !== undefined && soc !== null && Number.isFinite(socN);
-        const minSoc = this.minSoc();
-        const akkuSub =
-            f.akkuW > 20
-                ? `lädt ${watt(f.akkuW, lang)}`
-                : f.akkuW < -20
-                  ? `gibt ${watt(-f.akkuW, lang)}`
-                  : hatSoc && socN <= minSoc
-                    ? `an Grenze ${formatNumber(minSoc, 0, lang)} %`
-                    : 'Ruhe';
         // only a lost cloud turns the card red; a battery at its limit is normal every night
         const warn = h?.art === 'cloud';
-        const fuss = warn
-            ? h.text
-            : [
-                  Number.isFinite(solarHeute) ? `Heute ${kwh(solarHeute, lang)} Solar` : '',
-                  t.autarkie !== null ? `Autarkie ${prozent(t.autarkie, lang)}` : '',
-                  t.ersparnis > 0 ? `gespart ${euro(t.ersparnis, lang)}` : '',
-                  fullAt ? `Akku voll ${uhrzeit(fullAt, now)}` : emptyAt ? `Akku leer ${uhrzeit(emptyAt, now)}` : '',
-              ]
-                  .filter(Boolean)
-                  .join(' · ');
+        // the head line only speaks up when the cloud is gone
+        const fuss = warn ? h.text : '';
         const item = (label: string, text: string, color?: string, sub?: string, bar?: number): React.JSX.Element => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                 <span
@@ -661,7 +636,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                 <span
                     style={{
                         fontFamily: fonts.numbers,
-                        fontSize: 22,
+                        fontSize: 26,
                         fontWeight: 600,
                         lineHeight: 1,
                         whiteSpace: 'nowrap',
@@ -773,28 +748,20 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                         gap: 6,
                         flex: 1,
                         alignItems: 'start',
                     }}
                 >
-                    {item('SOLAR', watt(f.solarW, lang), C.solar, f.solarW > 5 ? 'Sonne' : 'aus')}
-                    {item(
-                        'AKKU',
-                        hatSoc ? `${formatNumber(socN, 0, lang)} %` : '—',
-                        C.akku,
-                        akkuSub,
-                        hatSoc ? socN : undefined,
-                    )}
-                    {item('WECHSELR.', watt(f.wrW, lang), C.akku, f.wrW > 5 ? 'ins Haus' : 'aus')}
-                    {item('HAUS', watt(f.hausW, lang), undefined, 'Verbrauch')}
+                    {item('WECHSELRICHTER', watt(f.wrW, lang), C.akku, f.wrW > 5 ? 'aus dem Akku ins Haus' : 'aus')}
                     {item(
                         f.netzW < 0 ? 'EINSPEISUNG' : 'NETZ',
                         watt(Math.abs(f.netzW), lang),
                         C.netz,
                         f.netzW < -5 ? 'ins Netz' : f.netzW > 5 ? 'Bezug' : 'ausgeglichen',
                     )}
+                    {item('GESAMTVERBRAUCH', watt(f.hausW, lang), C.haus, 'Haus')}
                 </div>
             </section>
         );
