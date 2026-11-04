@@ -167,7 +167,7 @@ const CSS = `
 .ze-sub{font-size:15px;color:var(--text-2,#a3a19a);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ze-sub b{color:var(--text,#ece9e1);font-weight:600}
 .ze-mods{display:flex;gap:6px;margin-top:12px}
-.ze-mod{flex:1;display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text-2,#a3a19a)}
+.ze-mod{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;font-size:12px;white-space:nowrap;color:var(--text-2,#a3a19a)}
 .ze-mod i{display:block;height:8px;border-radius:4px;background:var(--sw-off-bg,#333338);overflow:hidden}
 .ze-mod i>b{display:block;height:100%;border-radius:4px;background:${C.akku}}
 .ze-rows{display:flex;flex-direction:column;gap:5px;margin-top:14px}
@@ -910,12 +910,12 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                             <div
                                 key={m.module}
                                 className="ze-mod"
-                                title={`Modul ${m.module}: ${m.soc} %`}
+                                title={`${m.name}: ${m.soc} %`}
                             >
                                 <i>
                                     <b style={{ width: `${Math.max(0, Math.min(100, m.soc))}%` }} />
                                 </i>
-                                M{m.module} · {formatNumber(m.soc, 0, lang)} %
+                                {m.name} · {formatNumber(m.soc, 0, lang)} %
                             </div>
                         ))}
                     </div>
@@ -1160,7 +1160,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                     ) : null}
                     <div className="ze-hinweis">
                         {preis > 0
-                            ? `Strompreis ${formatNumber(preis, 2, lang)} €/kWh`
+                            ? `Strompreis ${formatNumber(preis, Math.round(preis * 100) === preis * 100 ? 2 : 4, lang)} €/kWh`
                             : 'Ersparnis laut Sunlit-App · Strompreis im Widget eintragen für eigene Rechnung'}
                     </div>
                 </aside>

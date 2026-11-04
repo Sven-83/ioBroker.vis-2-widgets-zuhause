@@ -208,7 +208,10 @@ describe('energie: forecast and hint', () => {
         assert.equal(uhrzeit(new Date(2026, 10, 4, 20, 5).getTime(), NOW), '20:05');
         assert.equal(uhrzeit(new Date(2026, 10, 5, 7, 10).getTime(), NOW), 'morgen 07:10');
         assert.equal(uhrzeit(null, NOW), '');
-        assert.deepEqual(parseModule('[{"module":1,"soc":18}]'), [{ module: 1, soc: 18 }]);
+        assert.deepEqual(parseModule('[{"module":1,"soc":18}]'), [{ module: 1, name: 'M1', soc: 18 }]);
+        assert.deepEqual(parseModule('[{"module":1,"name":"BK215","soc":22}]'), [
+            { module: 1, name: 'BK215', soc: 22 },
+        ]);
         assert.deepEqual(parseMppt('[{"id":"a","name":"MPPT1-Panel Terasse","w":12}]'), [
             { name: 'Panel Terasse', w: 12 },
         ]);

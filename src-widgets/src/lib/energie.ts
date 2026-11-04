@@ -421,12 +421,16 @@ export function uhrzeit(ts: number | null, now: Date): string {
 }
 
 /** Module levels of live.moduleSoc */
-export function parseModule(v: unknown): { module: number; soc: number }[] {
+export function parseModule(v: unknown): { module: number; name: string; soc: number }[] {
     const a = json(v);
     return Array.isArray(a)
         ? a
               .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-              .map(x => ({ module: num(x.module), soc: num(x.soc) }))
+              .map(x => ({
+                  module: num(x.module),
+                  name: typeof x.name === 'string' && x.name ? x.name : `M${num(x.module)}`,
+                  soc: num(x.soc),
+              }))
         : [];
 }
 
