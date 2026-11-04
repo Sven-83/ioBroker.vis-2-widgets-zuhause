@@ -276,7 +276,13 @@ export function historyPunkte(result: unknown, now: Date): Punkt[] {
             out.push({ min, w });
         }
     }
-    return out.sort((a, b) => a.min - b.min);
+    out.sort((a, b) => a.min - b.min);
+    // the history adapter puts the last known value at the start of the range; before logging
+    // began that is a made-up flat line, so drop that start point when a long gap follows
+    if (out.length > 1 && out[0].min < 1 && out[1].min - out[0].min > 30) {
+        out.shift();
+    }
+    return out;
 }
 
 /** Linear projection of the battery level from now to full or empty (from the adapter estimate) */

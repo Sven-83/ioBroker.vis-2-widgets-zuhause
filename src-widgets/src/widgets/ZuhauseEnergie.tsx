@@ -205,7 +205,7 @@ const CSS = `
 .ze-meter{height:8px;border-radius:4px;background:var(--sw-off-bg,#333338);overflow:hidden;display:flex;gap:2px}
 .ze-meter>i{display:block;height:100%}
 .ze-hinweis{font-size:12px;color:var(--text-2,#a3a19a);margin-top:auto;line-height:1.35}
-.ze-kf{flex:1 1 24px;min-width:18px;height:4px;margin-top:29px;border-radius:2px;background:var(--border,#36363b);position:relative;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.ze-kf{flex:1 1 24px;min-width:10px;height:4px;margin-top:29px;border-radius:2px;background:var(--border,#36363b);position:relative;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
 .ze-kf i{position:absolute;top:0;bottom:0;left:-60px;right:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 16px,currentColor 27px,currentColor 33px,transparent 44px,transparent 60px);filter:brightness(1.25);animation:ze-kf-run 5s linear infinite}
 .ze-kf.rev i{animation-direction:reverse}
 @keyframes ze-kf-run{from{transform:translateX(0)}to{transform:translateX(60px)}}
@@ -660,7 +660,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                 : f.akkuW < -20
                   ? `Entladen ${watt(-f.akkuW, lang)}`
                   : hatSoc && socN <= minSoc
-                    ? `Minimum ${formatNumber(minSoc, 0, lang)} % erreicht`
+                    ? `Minimum erreicht`
                     : 'Ruhezustand';
         const kwhOf = (k: LiveKey): number | null => {
             const x = this.val(k);
@@ -695,7 +695,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
             );
         };
         const item = (label: string, text: string, color?: string, sub?: string, bar?: number): React.JSX.Element => (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flex: '0 1 auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flex: '0 0 auto' }}>
                 <span
                     style={{
                         display: 'flex',
