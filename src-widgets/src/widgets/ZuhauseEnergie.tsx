@@ -732,65 +732,69 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
     private renderFluss(f: ReturnType<typeof fluss>, lang: string): React.JSX.Element {
         const socNum = Number(this.val('live.soc'));
         const soc = Number.isFinite(socNum) ? Math.max(0, Math.min(100, socNum)) : null;
+        const module = parseModule(this.val('live.moduleSoc'));
         const uid = String(this.props.id ?? 'x').replace(/[^\w-]/g, '');
-        // house in the middle, sources around it; value inside the ring, name beside it
-        const nodes = {
-            solar: { x: 64, y: 56, r: 34, c: C.solar, icon: ICON.solar, label: 'Solar', w: f.solarW },
-            akku: {
-                x: 64,
-                y: 184,
-                r: 34,
-                c: C.akku,
-                icon: ICON.akku,
-                label: soc !== null ? `Akku ${formatNumber(soc, 0, lang)} %` : 'Akku',
-                w: Math.abs(f.akkuW),
-            },
-            wr: { x: 184, y: 136, r: 22, c: C.akku, icon: ICON.wr, label: 'Wechselrichter', w: f.wrW },
-            haus: { x: 306, y: 116, r: 48, c: '#cfccc3', icon: ICON.haus, label: 'Haus', w: f.hausW },
-            netz: {
-                x: 436,
-                y: 116,
-                r: 34,
-                c: C.netz,
-                icon: ICON.netz,
-                label: f.netzW < 0 ? 'Einspeisung' : 'Netz',
-                w: Math.abs(f.netzW),
-            },
-        };
-        type N = keyof typeof nodes;
-        const gap = 6;
-        const edge = (n: N, dx: number, dy: number): [number, number] => {
-            const p = nodes[n];
-            const l = Math.hypot(dx, dy) || 1;
-            return [p.x + (dx / l) * (p.r + gap), p.y + (dy / l) * (p.r + gap)];
-        };
-        // curves leave and enter the rings horizontally, so the lines read as one stream
-        const kurve = (a: N, b: N, vertikal = false): string => {
-            const A = nodes[a];
-            const B = nodes[b];
-            if (vertikal) {
-                const s = Math.sign(B.y - A.y);
-                return `M${A.x} ${A.y + s * (A.r + gap)}L${B.x} ${B.y - s * (B.r + gap)}`;
-            }
-            const [x1, y1] = edge(a, B.x - A.x, (B.y - A.y) * 0.35);
-            const [x2, y2] = edge(b, A.x - B.x, (A.y - B.y) * 0.35);
-            const m = (x2 - x1) * 0.5;
-            return `M${x1} ${y1}C${x1 + m} ${y1} ${x2 - m} ${y2} ${x2} ${y2}`;
-        };
-        const export_ = f.netzW < 0;
-        // free length between two rings: one moving dot per ~40 px
-        const dots = (a: N, b: N): number => {
-            const l = Math.hypot(nodes[b].x - nodes[a].x, nodes[b].y - nodes[a].y) - nodes[a].r - nodes[b].r - 2 * gap;
-            return Math.max(1, Math.min(3, Math.round(l / 40)));
-        };
-        // [path, power, color, dots]; a line runs only when power flows
-        const lines: [string, number, string, number][] = [
-            [kurve('solar', 'akku', true), f.solarW, C.solar, dots('solar', 'akku')],
-            [kurve('akku', 'wr'), f.wrW, C.akku, dots('akku', 'wr')],
-            [kurve('wr', 'haus'), f.wrW, C.akku, dots('wr', 'haus')],
-            [export_ ? kurve('haus', 'netz') : kurve('netz', 'haus'), Math.abs(f.netzW), C.netz, dots('haus', 'netz')],
+        const an = (w: number): boolean => w > 5;
+        const grau = '#8a887f';
+        const einspeisung = f.netzW < 0;
+        const netzW = Math.abs(f.netzW);
+        const akkuW = f.akkuW;
+
+        // drawing: ground, house with roof, solar panels on the left roof slope, battery stack and
+        // inverter inside, grid pole on the right; the wires carry the moving dots
+        const boden = 236;
+        const haus = { l: 128, r: 352, o: 116 };
+        const first = { x: 240, y: 34 };
+        const traufeL = { x: 114, y: 126 };
+        const winkel = (Math.atan2(first.y - traufeL.y, first.x - traufeL.x) * 180) / Math.PI;
+        const stapel = { l: 150, r: 198, o: 158, u: 230 };
+        const mods = module.length ? module : soc !== null ? [{ module: 1, name: 'Akku', soc }] : [];
+        const mh = mods.length ? (stapel.u - stapel.o - (mods.length - 1) * 3) / mods.length : 0;
+        const wr = { l: 214, r: 242, o: 176, u: 198 };
+        const mast = { x: 432, o: 82 };
+
+        // [path, power, color, dots]
+        const leitungen: [string, number, string, number][] = [
+            [`M140 112L140 ${stapel.o + 8}Q140 ${stapel.o + 14} ${stapel.l} ${stapel.o + 14}`, f.solarW, C.solar, 2],
+            [`M${stapel.r} 187L${wr.l} 187`, f.wrW, C.akku, 1],
+            [`M${wr.r} 187L266 187`, f.wrW, C.akku, 1],
+            [
+                einspeisung
+                    ? `M${haus.r} 146Q392 146 ${mast.x - 14} ${mast.o + 10}`
+                    : `M${mast.x - 14} ${mast.o + 10}Q392 146 ${haus.r} 146`,
+                netzW,
+                C.netz,
+                2,
+            ],
         ];
-        const ring = 2 * Math.PI * (nodes.akku.r + 7);
+        const text = (
+            x: number,
+            y: number,
+            wert: string,
+            name: string,
+            anchor: 'start' | 'middle' | 'end' = 'middle',
+            gross = 20,
+        ): React.JSX.Element => (
+            <>
+                <text
+                    x={x}
+                    y={y}
+                    textAnchor={anchor}
+                    style={{ font: `600 ${gross}px ${NUM}`, fill: 'var(--text,#ece9e1)' }}
+                >
+                    {wert}
+                </text>
+                <text
+                    x={x}
+                    y={y + 16}
+                    textAnchor={anchor}
+                    className="ze-fl"
+                >
+                    {name}
+                </text>
+            </>
+        );
+        const strich = 'var(--sw-off-bd,#44444a)';
         return (
             <div className="ze-card ze-flow">
                 <div className="ze-h">
@@ -812,38 +816,153 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                         >
                             <feGaussianBlur stdDeviation="4" />
                         </filter>
-                        {(Object.keys(nodes) as N[]).map(k => (
-                            <radialGradient
-                                key={k}
-                                id={`ze-fill-${k}-${uid}`}
-                            >
-                                <stop
-                                    offset="0%"
-                                    stopColor={nodes[k].c}
-                                    stopOpacity={0.28}
-                                />
-                                <stop
-                                    offset="100%"
-                                    stopColor={nodes[k].c}
-                                    stopOpacity={0.04}
-                                />
-                            </radialGradient>
-                        ))}
+                        <linearGradient
+                            id={`ze-licht-${uid}`}
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                        >
+                            <stop
+                                offset="0%"
+                                stopColor="#f2c14e"
+                                stopOpacity={0.5}
+                            />
+                            <stop
+                                offset="100%"
+                                stopColor="#f2c14e"
+                                stopOpacity={0.15}
+                            />
+                        </linearGradient>
                     </defs>
-                    {lines.map(([path, w, c, n], i) => {
-                        const on = w > 5;
+
+                    {/* ground */}
+                    <line
+                        x1={20}
+                        x2={470}
+                        y1={boden}
+                        y2={boden}
+                        stroke={strich}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                    />
+
+                    {/* sun */}
+                    <g
+                        transform={`translate(${52 - 20} ${44 - 20}) scale(${40 / 24})`}
+                        style={{ color: an(f.solarW) ? C.solar : grau }}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        // static markup of this file only
+                        dangerouslySetInnerHTML={{ __html: ICON.solar }}
+                    />
+                    {text(52, 98, watt(f.solarW, lang), 'Solar')}
+
+                    {/* house: walls and roof */}
+                    <path
+                        d={`M${haus.l} ${boden}L${haus.l} ${haus.o}L${first.x} ${first.y}L${haus.r} ${haus.o}L${haus.r} ${boden}Z`}
+                        fill="var(--sw-off-bg,#333338)"
+                        fillOpacity={0.55}
+                    />
+                    <path
+                        d={`M${haus.l} ${haus.o}L${haus.l} ${boden}L${haus.r} ${boden}L${haus.r} ${haus.o}`}
+                        fill="none"
+                        stroke={an(f.hausW) ? '#cfccc3' : strich}
+                        strokeWidth={2}
+                        strokeLinejoin="round"
+                    />
+                    <path
+                        d={`M${traufeL.x} ${traufeL.y}L${first.x} ${first.y}L${480 - traufeL.x} ${traufeL.y}`}
+                        fill="none"
+                        stroke={an(f.hausW) ? '#cfccc3' : strich}
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                    {/* solar panels on the left roof slope */}
+                    <g transform={`translate(${traufeL.x + 22} ${traufeL.y - 16}) rotate(${winkel})`}>
+                        {[0, 1, 2].map(i => (
+                            <g key={i}>
+                                <rect
+                                    x={i * 35}
+                                    y={-17}
+                                    width={32}
+                                    height={14}
+                                    rx={2}
+                                    fill={an(f.solarW) ? C.solar : 'var(--sw-off-bg,#333338)'}
+                                    fillOpacity={an(f.solarW) ? 0.35 : 1}
+                                    stroke={an(f.solarW) ? C.solar : strich}
+                                    strokeWidth={1.5}
+                                />
+                                <line
+                                    x1={i * 35 + 16}
+                                    x2={i * 35 + 16}
+                                    y1={-17}
+                                    y2={-3}
+                                    stroke={an(f.solarW) ? C.solar : strich}
+                                    strokeWidth={1}
+                                />
+                            </g>
+                        ))}
+                    </g>
+                    {/* window with light while the house uses power */}
+                    <rect
+                        x={288}
+                        y={136}
+                        width={40}
+                        height={28}
+                        rx={3}
+                        fill={an(f.hausW) ? `url(#ze-licht-${uid})` : 'none'}
+                        stroke={an(f.hausW) ? '#cfccc3' : strich}
+                        strokeWidth={1.5}
+                    />
+                    <line
+                        x1={308}
+                        x2={308}
+                        y1={136}
+                        y2={164}
+                        stroke={an(f.hausW) ? '#cfccc3' : strich}
+                        strokeWidth={1.5}
+                    />
+                    {text(308, 196, watt(f.hausW, lang), 'Haus', 'middle', 26)}
+
+                    {/* grid pole */}
+                    <line
+                        x1={mast.x}
+                        x2={mast.x}
+                        y1={mast.o}
+                        y2={boden}
+                        stroke={an(netzW) ? C.netz : strich}
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                    />
+                    <line
+                        x1={mast.x - 20}
+                        x2={mast.x + 20}
+                        y1={mast.o + 8}
+                        y2={mast.o + 8}
+                        stroke={an(netzW) ? C.netz : strich}
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                    />
+                    {text(mast.x, mast.o - 24, watt(netzW, lang), einspeisung ? 'Einspeisung' : 'Netz')}
+
+                    {/* wires with moving dots */}
+                    {leitungen.map(([path, w, c, n], i) => {
+                        const on = an(w);
                         // faster dots with more power: 3 s at 50 W … 0.9 s at 2 kW
                         const t = Math.max(0.9, 3 - Math.log10(Math.max(w, 50) / 50) * 1.3);
-                        // thicker stream with more power: 2.5 px … 6 px at 2 kW
-                        const sw = on ? Math.min(6, 2.5 + Math.log10(Math.max(w, 50) / 50) * 2.2) : 2;
                         return (
                             <g key={i}>
                                 {on ? (
                                     <path
                                         d={path}
                                         stroke={c}
-                                        strokeOpacity={0.35}
-                                        strokeWidth={sw + 6}
+                                        strokeOpacity={0.4}
+                                        strokeWidth={8}
                                         fill="none"
                                         strokeLinecap="round"
                                         filter={`url(#ze-glow-${uid})`}
@@ -851,22 +970,22 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                                 ) : null}
                                 <path
                                     d={path}
-                                    stroke={on ? c : 'var(--border,#36363b)'}
-                                    strokeOpacity={on ? 0.55 : 1}
-                                    strokeWidth={sw}
-                                    strokeDasharray={on ? undefined : '3 6'}
+                                    stroke={on ? c : strich}
+                                    strokeOpacity={on ? 0.7 : 1}
+                                    strokeWidth={on ? 3 : 2}
+                                    strokeDasharray={on ? undefined : '3 5'}
                                     fill="none"
                                     strokeLinecap="round"
+                                    strokeLinejoin="round"
                                 />
                                 {on
                                     ? Array.from({ length: n }, (_, k) => (
                                           <circle
                                               key={k}
-                                              r={sw / 2 + 2}
+                                              r={3.5}
                                               className="ze-dot"
                                               style={
                                                   {
-                                                      color: '#fff',
                                                       fill: c,
                                                       stroke: '#fff',
                                                       strokeOpacity: 0.6,
@@ -882,121 +1001,89 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                             </g>
                         );
                     })}
-                    {soc !== null ? (
-                        <g transform={`rotate(-90 ${nodes.akku.x} ${nodes.akku.y})`}>
-                            <circle
-                                cx={nodes.akku.x}
-                                cy={nodes.akku.y}
-                                r={nodes.akku.r + 7}
-                                fill="none"
-                                stroke="var(--sw-off-bg,#333338)"
-                                strokeWidth={4}
-                            />
-                            <circle
-                                cx={nodes.akku.x}
-                                cy={nodes.akku.y}
-                                r={nodes.akku.r + 7}
-                                fill="none"
-                                stroke={C.akku}
-                                strokeWidth={4}
-                                strokeLinecap="round"
-                                strokeDasharray={`${(ring * soc) / 100} ${ring}`}
-                            />
-                        </g>
-                    ) : null}
-                    {(Object.keys(nodes) as N[]).map(k => {
-                        const n = nodes[k];
-                        const active = n.w > 5;
-                        const klein = k === 'wr';
-                        const gross = k === 'haus';
-                        const iconSize = gross ? 28 : klein ? 22 : 22;
-                        const iy = klein ? n.y - iconSize / 2 : n.y - (gross ? 30 : 24);
+
+                    {/* battery stack: one block per module, filled by its own level */}
+                    {mods.map((m, i) => {
+                        const y = stapel.o + i * (mh + 3);
+                        const breite = stapel.r - stapel.l - 6;
                         return (
-                            <g key={k}>
-                                <circle
-                                    cx={n.x}
-                                    cy={n.y}
-                                    r={n.r}
-                                    fill="var(--sw-off-bg,#333338)"
+                            <g key={m.module}>
+                                <rect
+                                    x={stapel.l}
+                                    y={y}
+                                    width={stapel.r - stapel.l}
+                                    height={mh}
+                                    rx={4}
+                                    fill="var(--card,#2b2b2f)"
+                                    stroke={an(Math.abs(akkuW)) ? C.akku : strich}
+                                    strokeWidth={1.5}
                                 />
-                                {active ? (
-                                    <circle
-                                        cx={n.x}
-                                        cy={n.y}
-                                        r={n.r}
-                                        fill={`url(#ze-fill-${k}-${uid})`}
-                                    />
-                                ) : null}
-                                <circle
-                                    cx={n.x}
-                                    cy={n.y}
-                                    r={n.r}
-                                    fill="none"
-                                    stroke={active ? n.c : 'var(--sw-off-bd,#44444a)'}
-                                    strokeWidth={gross ? 2.5 : 2}
-                                />
-                                <g
-                                    transform={`translate(${n.x - iconSize / 2} ${iy}) scale(${iconSize / 24})`}
-                                    style={{ color: active ? n.c : '#8a887f' }}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth={1.7}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    // static markup of this file only
-                                    dangerouslySetInnerHTML={{ __html: n.icon }}
-                                />
-                                {klein ? (
-                                    <>
-                                        <text
-                                            x={n.x}
-                                            y={n.y + n.r + 20}
-                                            textAnchor="middle"
-                                            style={{ font: `600 17px ${NUM}`, fill: 'var(--text,#ece9e1)' }}
-                                        >
-                                            {watt(n.w, lang)}
-                                        </text>
-                                        <text
-                                            x={n.x}
-                                            y={n.y + n.r + 35}
-                                            textAnchor="middle"
-                                            className="ze-fl"
-                                        >
-                                            {n.label}
-                                        </text>
-                                    </>
-                                ) : (
-                                    <>
-                                        <text
-                                            x={n.x}
-                                            y={n.y + (gross ? 20 : 15)}
-                                            textAnchor="middle"
-                                            style={{
-                                                font: `600 ${gross ? 25 : 18}px ${NUM}`,
-                                                fill: 'var(--text,#ece9e1)',
-                                            }}
-                                        >
-                                            {watt(n.w, lang)}
-                                        </text>
-                                        <text
-                                            x={n.x}
-                                            y={
-                                                k === 'solar'
-                                                    ? n.y - n.r - 10
-                                                    : k === 'akku'
-                                                      ? n.y + n.r + 26
-                                                      : n.y + n.r + 22
-                                            }
-                                            textAnchor="middle"
-                                            className="ze-fl"
-                                        >
-                                            {n.label}
-                                        </text>
-                                    </>
-                                )}
+                                <rect
+                                    x={stapel.l + 3}
+                                    y={y + 3}
+                                    width={Math.max(0, (breite * Math.max(0, Math.min(100, m.soc))) / 100)}
+                                    height={Math.max(0, mh - 6)}
+                                    rx={2}
+                                    fill={C.akku}
+                                    fillOpacity={0.75}
+                                >
+                                    <title>{`${m.name}: ${m.soc} %`}</title>
+                                </rect>
                             </g>
                         );
                     })}
+                    <text
+                        x={(stapel.l + stapel.r) / 2}
+                        y={stapel.o - 22}
+                        textAnchor="middle"
+                        style={{ font: `600 20px ${NUM}`, fill: 'var(--text,#ece9e1)' }}
+                    >
+                        {soc !== null ? `${formatNumber(soc, 0, lang)} %` : '–'}
+                    </text>
+                    <text
+                        x={(stapel.l + stapel.r) / 2}
+                        y={stapel.o - 7}
+                        textAnchor="middle"
+                        className="ze-fl"
+                    >
+                        {an(akkuW) ? `+${watt(akkuW, lang)}` : an(-akkuW) ? `−${watt(-akkuW, lang)}` : 'Akku'}
+                    </text>
+
+                    {/* inverter */}
+                    <rect
+                        x={wr.l}
+                        y={wr.o}
+                        width={wr.r - wr.l}
+                        height={wr.u - wr.o}
+                        rx={4}
+                        fill="var(--card,#2b2b2f)"
+                        stroke={an(f.wrW) ? C.akku : strich}
+                        strokeWidth={1.5}
+                    />
+                    <path
+                        d={`M${wr.l + 6} ${wr.o + 14}q4 -7 8 0t8 0`}
+                        fill="none"
+                        stroke={an(f.wrW) ? C.akku : grau}
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                    />
+                    <text
+                        x={(wr.l + wr.r) / 2}
+                        y={wr.u + 16}
+                        textAnchor="middle"
+                        style={{ font: `600 15px ${NUM}`, fill: 'var(--text,#ece9e1)' }}
+                    >
+                        {watt(f.wrW, lang)}
+                    </text>
+                    <text
+                        x={(wr.l + wr.r) / 2}
+                        y={wr.u + 28}
+                        textAnchor="middle"
+                        className="ze-fl"
+                        style={{ fontSize: 11 }}
+                    >
+                        WR
+                    </text>
                 </svg>
             </div>
         );
