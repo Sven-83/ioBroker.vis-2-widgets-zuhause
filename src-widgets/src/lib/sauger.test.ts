@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
     aktiveRaeume,
+    anzeigen,
     ausRoboter,
     fortschritt,
     imRaum,
@@ -155,5 +156,22 @@ describe('sauger', () => {
         assert.equal(parseRaeume('{').fehler.length, 1);
         assert.deepEqual(parseLinien('[[1,2,3,4],[1,2]]'), [[1, 2, 3, 4]]);
         assert.deepEqual(parseLinien('nix'), []);
+    });
+
+    it('shows a written value until the robot confirms it, then follows the robot again', () => {
+        const robot = { ...STANDARD, saug: 3 };
+        const pend: Record<string, { v: unknown; t: number }> = { saug: { v: 1, t: 1000 } };
+        // not confirmed yet: the page shows the new value
+        assert.equal(anzeigen(robot, pend as never, 2000).saug, 1);
+        assert.ok(pend.saug);
+        // robot reports it: entry gone
+        assert.equal(anzeigen({ ...robot, saug: 1 }, pend as never, 3000).saug, 1);
+        assert.equal(pend.saug, undefined);
+        // a later change in the app shows at once
+        assert.equal(anzeigen({ ...robot, saug: 2 }, pend as never, 3500).saug, 2);
+        // never confirmed: after 10 s the robot's value counts again
+        const p2: Record<string, { v: unknown; t: number }> = { wasser: { v: 30, t: 0 } };
+        assert.equal(anzeigen(robot, p2 as never, 9000).wasser, 30);
+        assert.equal(anzeigen(robot, p2 as never, 10000).wasser, robot.wasser);
     });
 });

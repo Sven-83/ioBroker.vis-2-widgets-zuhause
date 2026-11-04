@@ -157,6 +157,29 @@ export function ausRoboter(val: (id: string) => unknown, ids: SaugerIds, fallbac
     };
 }
 
+/** Values written from the page that the robot has not confirmed yet: shown instead of the robot's */
+export type Ausstehend = Partial<Record<keyof Einstellung, { v: Einstellung[keyof Einstellung]; t: number }>>;
+
+/** How long a written value wins over the robot's report without confirmation */
+export const AUSSTEHEND_MS = 10000;
+
+/**
+ * What the page shows: the robot's settings, except values just written and not reported back yet.
+ * Removes confirmed and expired entries from `pend`, so afterwards every change from the app shows again.
+ */
+export function anzeigen(roboter: Einstellung, pend: Ausstehend, now: number): Einstellung {
+    const out = { ...roboter } as Record<keyof Einstellung, unknown>;
+    for (const k of Object.keys(pend) as (keyof Einstellung)[]) {
+        const p = pend[k]!;
+        if (now - p.t >= AUSSTEHEND_MS || roboter[k] === p.v) {
+            delete pend[k];
+        } else {
+            out[k] = p.v;
+        }
+    }
+    return out as unknown as Einstellung;
+}
+
 export interface Schreiben {
     id: string;
     value: number | string;

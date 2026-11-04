@@ -22,6 +22,7 @@ import {
     WASSER_MIN,
     WASSER_STUFEN,
     aktiveRaeume,
+    anzeigen,
     ausRoboter,
     fortschritt,
     labelPos,
@@ -37,6 +38,7 @@ import {
     vorbereiten,
     wasserStufe,
     wischt,
+    type Ausstehend,
     type Einstellung,
     type Modus,
     type SaugerIds,
@@ -64,8 +66,6 @@ interface SaugerRxData {
 
 interface SaugerState extends VisRxWidgetState {
     zsWahl: number[];
-    /** own settings; null = show the robot's */
-    zsEinst: Einstellung | null;
     zsDurch: number;
     zsPlan: PlanLayers | null;
     zsPlanFehler: string;
@@ -144,7 +144,7 @@ const STUFE_TEXT: Record<string, string> = { low: 'Niedrig', mid: 'Mittel', high
 
 const STYLE_ID = 'zh-sauger-styles';
 const CSS = `
-.zs{--bg:var(--bg,#232325);width:${W}px;height:${H}px;padding:24px;box-sizing:border-box;display:grid;grid-template-columns:600px 1fr;grid-template-rows:64px 1fr 84px;gap:16px;font-family:'Zuhause Barlow',Barlow,system-ui,sans-serif;color:var(--text,#ece9e1);transform-origin:top left;user-select:none;-webkit-tap-highlight-color:transparent}
+.zs{width:${W}px;height:${H}px;padding:24px;box-sizing:border-box;display:grid;grid-template-columns:600px 1fr;grid-template-rows:64px 1fr 84px;gap:16px;font-family:'Zuhause Barlow',Barlow,system-ui,sans-serif;color:var(--text,#ece9e1);transform-origin:top left;user-select:none;-webkit-tap-highlight-color:transparent}
 .zs *{box-sizing:border-box}
 .zs button{font-family:inherit;touch-action:manipulation}
 .zs-ic{display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -279,13 +279,17 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
     private stepTimer?: ReturnType<typeof setTimeout>;
     /** order of the job this page started (the robot's list is used after a reload) */
     private job: number[] = [];
+    /** written, not yet reported back by the robot */
+    private pend: Ausstehend = {};
+    /** writes go out one after the other (mode and mop wash area share one property) */
+    private queue: Promise<void> = Promise.resolve();
+    private debounce = new Map<string, ReturnType<typeof setTimeout>>();
 
     constructor(props: VisRxWidgetProps) {
         super(props);
         this.state = {
             ...this.state,
             zsWahl: [],
-            zsEinst: null,
             zsDurch: 1,
             zsPlan: null,
             zsPlanFehler: '',
@@ -361,6 +365,7 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         if (this.stepTimer) {
             clearTimeout(this.stepTimer);
         }
+        this.debounce.forEach(t => clearTimeout(t));
         super.componentWillUnmount();
     }
 
@@ -444,12 +449,58 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
     }
 
     private einst(ids: SaugerIds): Einstellung {
-        return this.state.zsEinst ?? { ...ausRoboter(this.val, ids), durchgaenge: this.state.zsDurch };
+        return { ...anzeigen(ausRoboter(this.val, ids), this.pend, Date.now()), durchgaenge: this.state.zsDurch };
     }
 
-    private aendern(ids: SaugerIds, f: (e: Einstellung) => Partial<Einstellung>): void {
+    /**
+     * A change goes to the robot at once (slider and stepper after a short pause). Until the robot reports
+     * the new value the page shows it; afterwards the page follows the robot again, also changes in the app.
+     */
+    private aendern(ids: SaugerIds, f: (e: Einstellung) => Partial<Einstellung>, delayMs = 0): void {
+        if (this.props.editMode) {
+            return;
+        }
         const e = this.einst(ids);
-        this.setState({ zsEinst: { ...e, ...f(e) } });
+        const patch = f(e);
+        const now = Date.now();
+        for (const [k, v] of Object.entries(patch) as [keyof Einstellung, Einstellung[keyof Einstellung]][]) {
+            this.pend[k] = { v, t: now };
+        }
+        this.setState(st => ({ zsTick: st.zsTick + 1 }));
+        for (const w of vorbereiten({ ...e, ...patch }, e, ids)) {
+            const go = (): void => this.enqueue(w.id, w.value, Object.keys(patch) as (keyof Einstellung)[]);
+            const old = this.debounce.get(w.id);
+            if (old) {
+                clearTimeout(old);
+            }
+            if (delayMs) {
+                this.debounce.set(
+                    w.id,
+                    setTimeout(() => {
+                        this.debounce.delete(w.id);
+                        go();
+                    }, delayMs),
+                );
+            } else {
+                go();
+            }
+        }
+    }
+
+    private enqueue(id: string, value: number | string, keys: (keyof Einstellung)[]): void {
+        this.queue = this.queue.then(async () => {
+            if (!this.alive) {
+                return;
+            }
+            // the wait for the robot's answer starts when the value really goes out
+            for (const k of keys) {
+                if (this.pend[k]) {
+                    this.pend[k].t = Date.now();
+                }
+            }
+            this.set(id, value);
+            await wait(WRITE_GAP_MS);
+        });
     }
 
     private toggleRaum(id: number): void {
@@ -472,6 +523,13 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         if (!raeume.length || this.props.editMode) {
             return;
         }
+        // pending slider/stepper changes first, then whatever still differs
+        for (const [id, t] of this.debounce) {
+            clearTimeout(t);
+            this.debounce.delete(id);
+        }
+        this.setState({ zsVorbereitung: 'Einstellungen werden übertragen …', zsFort: -1 });
+        await this.queue;
         const writes = vorbereiten(wunsch, ausRoboter(this.val, ids), ids);
         this.job = raeume;
         this.setState({
@@ -487,7 +545,7 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         }
         this.set(ids.start, startBefehl(raeume, wunsch));
         // until the robot reports the job; the settings now follow the robot again
-        this.setState({ zsEinst: null, zsWahl: [], zsVorbereitung: 'Startet …' });
+        this.setState({ zsWahl: [], zsVorbereitung: 'Startet …' });
         this.stepTimer = setTimeout(() => this.alive && this.setState({ zsVorbereitung: '' }), 8000);
     }
 
@@ -660,7 +718,7 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
                     value={e.wasser}
                     aria-label="Wasserintensität"
                     style={{ top: top - 22 }}
-                    onChange={ev => this.aendern(ids, () => ({ wasser: Number(ev.target.value) }))}
+                    onChange={ev => this.aendern(ids, () => ({ wasser: Number(ev.target.value) }), 700)}
                 />
             </div>
         );
@@ -867,7 +925,9 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
                                     <button
                                         type="button"
                                         disabled={e.m2 <= M2_MIN}
-                                        onClick={() => this.aendern(ids, x => ({ m2: Math.max(M2_MIN, x.m2 - 1) }))}
+                                        onClick={() =>
+                                            this.aendern(ids, x => ({ m2: Math.max(M2_MIN, x.m2 - 1) }), 900)
+                                        }
                                     >
                                         –
                                     </button>
@@ -875,7 +935,9 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
                                     <button
                                         type="button"
                                         disabled={e.m2 >= M2_MAX}
-                                        onClick={() => this.aendern(ids, x => ({ m2: Math.min(M2_MAX, x.m2 + 1) }))}
+                                        onClick={() =>
+                                            this.aendern(ids, x => ({ m2: Math.min(M2_MAX, x.m2 + 1) }), 900)
+                                        }
                                     >
                                         +
                                     </button>
