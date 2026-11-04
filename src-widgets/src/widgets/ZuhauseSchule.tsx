@@ -161,7 +161,16 @@ export default class ZuhauseSchule extends (window.visRxWidget as typeof VisRxWi
 
     componentDidUpdate(prevProps: VisRxWidgetProps, prevState: typeof this.state): void {
         super.componentDidUpdate(prevProps, prevState);
-        const oid = this.state.rxData[`oidVertretungen${this.state.zhTag}`];
+        // the first day moved on (midnight, 15:00): drop a manual pick of day 2, it now means another day
+        const oidTitle1 = this.state.rxData.oidTitel1;
+        if (oidTitle1 && this.state.zhTag === 2) {
+            const before = prevState.values[`${oidTitle1}.val`];
+            if (before !== undefined && before !== this.state.values[`${oidTitle1}.val`]) {
+                this.setState({ zhTag: 1 });
+                return;
+            }
+        }
+        const oid =this.state.rxData[`oidVertretungen${this.state.zhTag}`];
         if (!oid || prevState.zhTag !== this.state.zhTag) {
             return;
         }
