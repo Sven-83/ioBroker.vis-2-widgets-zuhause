@@ -24,6 +24,76 @@ export function resolveImage(path: string, projectName: string): string {
     return p.startsWith('vis-2.0/') ? `../${p}` : `../vis-2.0/${p}`;
 }
 
+/** Plan split for an overlay between the room fills and the walls (vacuum page) */
+export interface PlanLayers {
+    viewBox: { x: number; y: number; w: number; h: number };
+    /** background and <g id="raeume"> */
+    below: string;
+    /** everything after it: walls, windows, doors */
+    above: string;
+}
+
+const layerCache = new Map<string, Promise<PlanLayers>>();
+
+/** Removes what could run inside an inline SVG: scripts, foreign content, event handlers, script links */
+function sanitize(el: Element): void {
+    el.querySelectorAll('script, foreignObject, iframe, object, embed, use').forEach(n => n.remove());
+    const all = [el, ...Array.from(el.querySelectorAll('*'))];
+    for (const n of all) {
+        for (const a of Array.from(n.attributes)) {
+            if (/^on/i.test(a.name) || (/href$/i.test(a.name) && !/^#/.test(a.value.trim()))) {
+                n.removeAttribute(a.name);
+            }
+        }
+    }
+}
+
+/** Loads the plan as markup in two layers; the overlay goes between them so walls stay on top */
+export function loadPlanLayers(url: string): Promise<PlanLayers> {
+    let p = layerCache.get(url);
+    if (!p) {
+        p = fetch(url, { credentials: 'same-origin' })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                return res.text();
+            })
+            .then(text => {
+                const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+                const svg = doc.documentElement;
+                if (!svg || svg.nodeName.toLowerCase() !== 'svg') {
+                    throw new Error('no SVG');
+                }
+                sanitize(svg);
+                const viewBox = parseViewBox(svg.getAttribute('viewBox')) || {
+                    x: 0,
+                    y: 0,
+                    w: Number(svg.getAttribute('width')) || 1000,
+                    h: Number(svg.getAttribute('height')) || 700,
+                };
+                const ser = new XMLSerializer();
+                const kids = Array.from(svg.children);
+                const split = kids.findIndex(k => k.getAttribute('id') === 'raeume');
+                const cut = split >= 0 ? split + 1 : Math.min(1, kids.length);
+                return {
+                    viewBox,
+                    below: kids
+                        .slice(0, cut)
+                        .map(k => ser.serializeToString(k))
+                        .join(''),
+                    above: kids
+                        .slice(cut)
+                        .map(k => ser.serializeToString(k))
+                        .join(''),
+                };
+            });
+        layerCache.set(url, p);
+        p.catch(() => layerCache.delete(url));
+    }
+    return p;
+}
+
 export function loadPlan(url: string): Promise<PlanSvg> {
     let p = cache.get(url);
     if (!p) {

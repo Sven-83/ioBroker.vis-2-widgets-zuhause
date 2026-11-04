@@ -24,6 +24,7 @@ German documentation: [docs/de/README.md](docs/de/README.md).
 | Kopfzeile | page head: small line, title, view tabs, date and clock |
 | Legende | one line legend of the tile signs |
 | Seiten-Wechsel | shows a view and switches it when a tab of the head line is tapped, so pages stay inside a frame (Jäger menu) |
+| Saugroboter | page for a Dreame robot (adapter dreamehome): rooms on the floor plan in order, mode, suction, max suction, water 1–32, mop wash area, route, repeats; start/pause/stop with progress |
 
 The colours come from CSS variables (`--card`, `--sw-on`, …) with dark defaults, so a project CSS can
 theme all widgets at once.

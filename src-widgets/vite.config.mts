@@ -23,6 +23,7 @@ export default {
                 './ZuhauseKopf': './src/widgets/ZuhauseKopf',
                 './ZuhauseLegende': './src/widgets/ZuhauseLegende',
                 './ZuhauseSeiten': './src/widgets/ZuhauseSeiten',
+                './ZuhauseSauger': './src/widgets/ZuhauseSauger',
                 './translations': './src/translations',
             },
             remotes: {},

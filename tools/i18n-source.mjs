@@ -207,6 +207,15 @@ const T = {
     plan_no_svg: ['Choose a floor plan SVG', 'Grundriss-SVG wählen'],
     plan_load_error: ['Floor plan cannot be loaded', 'Grundriss lässt sich nicht laden'],
 
+    sauger_label: ['Vacuum robot', 'Saugroboter'],
+    sauger_device: ['Device path', 'Gerätepfad'],
+    sauger_device_tip: ['Folder of the robot in dreamehome, e.g. dreamehome.0.123456789', 'Ordner des Roboters in dreamehome, z. B. dreamehome.0.123456789'],
+    sauger_svg_tip: ['Floor plan SVG; the room overlay is drawn between <g id="raeume"> and the walls', 'Grundriss-SVG; die Raumflächen liegen zwischen <g id="raeume"> und den Wänden'],
+    sauger_rooms: ['Rooms (JSON)', 'Räume (JSON)'],
+    sauger_rooms_tip: ['[{"name":"Bad","id":6,"flaechen":["0,0 230,0 230,147 0,147"],"x":115,"y":74}]; id = RoomID of the robot', '[{"name":"Bad","id":6,"flaechen":["0,0 230,0 230,147 0,147"],"x":115,"y":74}]; id = RoomID des Roboters'],
+    sauger_lines: ['Dashed borders (JSON)', 'Gestrichelte Grenzen (JSON)'],
+    sauger_lines_tip: ['Borders without a wall: [[x1,y1,x2,y2], ...]', 'Grenzen ohne Wand: [[x1,y1,x2,y2], …]'],
+
     panel_label: ['Floor panel', 'Etagen-Panel'],
     panel_plan: ['Floor plan widget', 'Grundriss-Widget'],
     panel_function: ['Function', 'Funktion'],
