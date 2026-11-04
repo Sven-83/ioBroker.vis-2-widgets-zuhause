@@ -217,5 +217,6 @@
     "energie_minsoc": "Akku leer bei (%), 0 = Wert aus der App",
     "energie_forecast": "Solar-Prognose",
     "energie_forecast_tip": "open-meteo für den Standort aus den ioBroker-Systemeinstellungen, abgeglichen mit dem eigenen Ertrag",
-    "energie_back": "Zurück zu View"
+    "energie_back": "Zurück zu View",
+    "energie_auto_back": "Automatisch zurück nach (Minuten, 0 = nie)"
 }

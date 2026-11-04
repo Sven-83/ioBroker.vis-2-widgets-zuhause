@@ -61,6 +61,8 @@ interface EnergieRxData {
     prognose: boolean;
     klickView: string;
     zurueck: string;
+    /** minutes without touch until the page returns by itself (0 = never) */
+    autoZurueck: number;
     animationStufe: string;
     nachtAus: boolean;
 }
@@ -156,7 +158,7 @@ const CSS = `
 .ze-ic{display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .ze-kopf{grid-column:1/-1;display:flex;align-items:center;gap:16px}
 .ze-kopf h1{margin:0;font-size:30px;font-weight:600;letter-spacing:.01em}
-.ze-zur{display:flex;align-items:center;gap:6px;height:44px;padding:0 16px 0 10px;border-radius:22px;border:1px solid var(--sw-off-bd,#44444a);background:var(--sw-off-bg,#333338);color:var(--sw-off-fg,#cfccc3);font:600 16px 'Zuhause Barlow',Barlow,system-ui,sans-serif;cursor:pointer}
+.ze-zur{display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;border-radius:24px;border:1px solid var(--sw-off-bd,#44444a);background:var(--sw-off-bg,#333338);color:var(--sw-off-fg,#cfccc3);font:600 16px 'Zuhause Barlow',Barlow,system-ui,sans-serif;cursor:pointer}
 .ze-pill{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:20px;background:var(--card,#2b2b2f);border:1px solid var(--border,#36363b);color:var(--text-2,#a3a19a);font-size:15px;white-space:nowrap}
 .ze-pill b{color:var(--text,#ece9e1);font:600 18px ${NUM}}
 .ze-pill.warn{background:var(--warn-bg,#3a1d1f);border-color:var(--warn-bd,#e5484d);color:var(--warn-fg,#ffb3b3)}
@@ -226,6 +228,8 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
     private zeResize?: ResizeObserver;
     private timers: ReturnType<typeof setInterval>[] = [];
     private alive = true;
+    private letzteAktion = Date.now();
+    private wisch: { x: number; y: number; t: number } | null = null;
     private prognoseTs = 0;
 
     constructor(props: VisRxWidgetProps) {
@@ -314,6 +318,15 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                             hidden: 'data.darstellung === "kachel"',
                         },
                         {
+                            name: 'autoZurueck',
+                            type: 'number',
+                            label: 'energie_auto_back',
+                            default: 2,
+                            min: 0,
+                            max: 60,
+                            hidden: 'data.darstellung === "kachel"',
+                        },
+                        {
                             name: 'animationStufe',
                             type: 'select',
                             label: 'animation_level',
@@ -360,6 +373,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
             }, HISTORY_MS),
             // clock for "vor x min", the projection and the hint
             setInterval(() => this.alive && this.setState({ zeTick: Date.now() }), 60_000),
+            setInterval(() => this.autoZurueck(), 5_000),
         );
     }
 
@@ -486,6 +500,46 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
             // no forecast without internet, the page works without it
         }
     }
+
+    /** back to the start page after some minutes without touch, only while the page is on screen */
+    private autoZurueck(): void {
+        const d = this.state.rxData;
+        // not set yet in widgets created before this field: 2 minutes
+        const raw: unknown = d.autoZurueck;
+        const min = raw === undefined || raw === null || raw === '' ? 2 : Number(raw);
+        const el = this.box.current;
+        const sichtbar =
+            !!el && el.getClientRects().length > 0 && (typeof document === 'undefined' || !document.hidden);
+        if (!this.seite() || !d.zurueck || this.props.editMode || !(min > 0) || !sichtbar) {
+            // hidden pages start counting again when they come back
+            this.letzteAktion = Date.now();
+            return;
+        }
+        if (Date.now() - this.letzteAktion >= min * 60_000) {
+            this.letzteAktion = Date.now();
+            this.go(d.zurueck);
+        }
+    }
+
+    private beruehrt = (e: React.PointerEvent): void => {
+        this.letzteAktion = Date.now();
+        this.wisch = { x: e.clientX, y: e.clientY, t: Date.now() };
+    };
+
+    /** swipe to the right (finger moves left → right) goes back */
+    private losgelassen = (e: React.PointerEvent): void => {
+        const w = this.wisch;
+        this.wisch = null;
+        this.letzteAktion = Date.now();
+        if (!w || !this.state.rxData.zurueck) {
+            return;
+        }
+        const dx = e.clientX - w.x;
+        const dy = Math.abs(e.clientY - w.y);
+        if (dx > 120 && dy < dx * 0.5 && Date.now() - w.t < 900) {
+            this.go(this.state.rxData.zurueck);
+        }
+    };
 
     private go(view: string): void {
         if (!view || this.props.editMode) {
@@ -760,6 +814,9 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                 ref={this.box}
                 className={levelClass}
                 style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}
+                onPointerDownCapture={this.beruehrt}
+                onPointerUpCapture={this.losgelassen}
+                onPointerCancelCapture={() => (this.wisch = null)}
             >
                 <div
                     className="ze"
@@ -770,13 +827,14 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                             <button
                                 type="button"
                                 className="ze-zur zh-btn"
+                                aria-label="Zurück"
+                                title="Zurück"
                                 onClick={() => this.go(d.zurueck)}
                             >
                                 <Ic
                                     d={ICON.zurueck}
-                                    size={22}
+                                    size={24}
                                 />
-                                Start
                             </button>
                         ) : null}
                         <h1>Energie</h1>
