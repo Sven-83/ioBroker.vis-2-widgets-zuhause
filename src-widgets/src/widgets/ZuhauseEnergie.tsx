@@ -201,7 +201,7 @@ const CSS = `
 .ze-meter{height:8px;border-radius:4px;background:var(--sw-off-bg,#333338);overflow:hidden;display:flex;gap:2px}
 .ze-meter>i{display:block;height:100%}
 .ze-hinweis{font-size:12px;color:var(--text-2,#a3a19a);margin-top:auto;line-height:1.35}
-.ze-flow .ze-dot{fill:currentColor}
+.ze-fl{font:500 13px 'Zuhause Barlow',Barlow,system-ui,sans-serif;fill:var(--text-2,#a3a19a)}
 @keyframes ze-move{from{offset-distance:0%}to{offset-distance:100%}}
 .ze-dot{animation:ze-move var(--ze-t,2.4s) linear infinite}
 .zh-still .ze-dot{animation:none;opacity:0}
@@ -730,22 +730,27 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
     }
 
     private renderFluss(f: ReturnType<typeof fluss>, lang: string): React.JSX.Element {
-        const soc = Number(this.val('live.soc'));
+        const socNum = Number(this.val('live.soc'));
+        const soc = Number.isFinite(socNum) ? Math.max(0, Math.min(100, socNum)) : null;
+        const uid = String(this.props.id ?? 'x').replace(/[^\w-]/g, '');
+        // house in the middle, sources around it; value inside the ring, name beside it
         const nodes = {
-            solar: { x: 70, y: 46, c: C.solar, icon: ICON.solar, label: 'Solar', w: f.solarW },
+            solar: { x: 64, y: 56, r: 34, c: C.solar, icon: ICON.solar, label: 'Solar', w: f.solarW },
             akku: {
-                x: 70,
-                y: 168,
+                x: 64,
+                y: 184,
+                r: 34,
                 c: C.akku,
                 icon: ICON.akku,
-                label: Number.isFinite(soc) ? `Akku ${formatNumber(soc, 0, lang)} %` : 'Akku',
+                label: soc !== null ? `Akku ${formatNumber(soc, 0, lang)} %` : 'Akku',
                 w: Math.abs(f.akkuW),
             },
-            wr: { x: 240, y: 168, c: '#cfccc3', icon: ICON.wr, label: 'Wechselrichter', w: f.wrW },
-            haus: { x: 410, y: 168, c: '#cfccc3', icon: ICON.haus, label: 'Haus', w: f.hausW },
+            wr: { x: 184, y: 136, r: 22, c: C.akku, icon: ICON.wr, label: 'Wechselrichter', w: f.wrW },
+            haus: { x: 306, y: 116, r: 48, c: '#cfccc3', icon: ICON.haus, label: 'Haus', w: f.hausW },
             netz: {
-                x: 410,
-                y: 46,
+                x: 436,
+                y: 116,
+                r: 34,
                 c: C.netz,
                 icon: ICON.netz,
                 label: f.netzW < 0 ? 'Einspeisung' : 'Netz',
@@ -753,14 +758,39 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
             },
         };
         type N = keyof typeof nodes;
-        const R = 30;
-        // [from, to, power, color]; a line runs only when power flows
-        const lines: [N, N, number, string][] = [
-            ['solar', 'akku', f.solarW, C.solar],
-            ['akku', 'wr', f.wrW, C.akku],
-            ['wr', 'haus', f.wrW, C.akku],
-            [f.netzW < 0 ? 'haus' : 'netz', f.netzW < 0 ? 'netz' : 'haus', Math.abs(f.netzW), C.netz],
+        const gap = 6;
+        const edge = (n: N, dx: number, dy: number): [number, number] => {
+            const p = nodes[n];
+            const l = Math.hypot(dx, dy) || 1;
+            return [p.x + (dx / l) * (p.r + gap), p.y + (dy / l) * (p.r + gap)];
+        };
+        // curves leave and enter the rings horizontally, so the lines read as one stream
+        const kurve = (a: N, b: N, vertikal = false): string => {
+            const A = nodes[a];
+            const B = nodes[b];
+            if (vertikal) {
+                const s = Math.sign(B.y - A.y);
+                return `M${A.x} ${A.y + s * (A.r + gap)}L${B.x} ${B.y - s * (B.r + gap)}`;
+            }
+            const [x1, y1] = edge(a, B.x - A.x, (B.y - A.y) * 0.35);
+            const [x2, y2] = edge(b, A.x - B.x, (A.y - B.y) * 0.35);
+            const m = (x2 - x1) * 0.5;
+            return `M${x1} ${y1}C${x1 + m} ${y1} ${x2 - m} ${y2} ${x2} ${y2}`;
+        };
+        const export_ = f.netzW < 0;
+        // free length between two rings: one moving dot per ~40 px
+        const dots = (a: N, b: N): number => {
+            const l = Math.hypot(nodes[b].x - nodes[a].x, nodes[b].y - nodes[a].y) - nodes[a].r - nodes[b].r - 2 * gap;
+            return Math.max(1, Math.min(3, Math.round(l / 40)));
+        };
+        // [path, power, color, dots]; a line runs only when power flows
+        const lines: [string, number, string, number][] = [
+            [kurve('solar', 'akku', true), f.solarW, C.solar, dots('solar', 'akku')],
+            [kurve('akku', 'wr'), f.wrW, C.akku, dots('akku', 'wr')],
+            [kurve('wr', 'haus'), f.wrW, C.akku, dots('wr', 'haus')],
+            [export_ ? kurve('haus', 'netz') : kurve('netz', 'haus'), Math.abs(f.netzW), C.netz, dots('haus', 'netz')],
         ];
+        const ring = 2 * Math.PI * (nodes.akku.r + 7);
         return (
             <div className="ze-card ze-flow">
                 <div className="ze-h">
@@ -770,45 +800,80 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                     viewBox="0 0 480 250"
                     width={480}
                     height={250}
-                    style={{ display: 'block', marginTop: 4 }}
+                    style={{ display: 'block', marginTop: 4, overflow: 'visible' }}
                 >
-                    {lines.map(([a, b, w, c], i) => {
-                        const A = nodes[a];
-                        const B = nodes[b];
-                        const len = Math.hypot(B.x - A.x, B.y - A.y);
-                        const ux = (B.x - A.x) / len;
-                        const uy = (B.y - A.y) / len;
-                        const x1 = A.x + ux * (R + 4);
-                        const y1 = A.y + uy * (R + 4);
-                        const x2 = B.x - ux * (R + 4);
-                        const y2 = B.y - uy * (R + 4);
+                    <defs>
+                        <filter
+                            id={`ze-glow-${uid}`}
+                            x="-50%"
+                            y="-50%"
+                            width="200%"
+                            height="200%"
+                        >
+                            <feGaussianBlur stdDeviation="4" />
+                        </filter>
+                        {(Object.keys(nodes) as N[]).map(k => (
+                            <radialGradient
+                                key={k}
+                                id={`ze-fill-${k}-${uid}`}
+                            >
+                                <stop
+                                    offset="0%"
+                                    stopColor={nodes[k].c}
+                                    stopOpacity={0.28}
+                                />
+                                <stop
+                                    offset="100%"
+                                    stopColor={nodes[k].c}
+                                    stopOpacity={0.04}
+                                />
+                            </radialGradient>
+                        ))}
+                    </defs>
+                    {lines.map(([path, w, c, n], i) => {
                         const on = w > 5;
                         // faster dots with more power: 3 s at 50 W … 0.9 s at 2 kW
                         const t = Math.max(0.9, 3 - Math.log10(Math.max(w, 50) / 50) * 1.3);
-                        const path = `M${x1} ${y1}L${x2} ${y2}`;
+                        // thicker stream with more power: 2.5 px … 6 px at 2 kW
+                        const sw = on ? Math.min(6, 2.5 + Math.log10(Math.max(w, 50) / 50) * 2.2) : 2;
                         return (
                             <g key={i}>
+                                {on ? (
+                                    <path
+                                        d={path}
+                                        stroke={c}
+                                        strokeOpacity={0.35}
+                                        strokeWidth={sw + 6}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        filter={`url(#ze-glow-${uid})`}
+                                    />
+                                ) : null}
                                 <path
                                     d={path}
                                     stroke={on ? c : 'var(--border,#36363b)'}
-                                    strokeOpacity={on ? 0.45 : 1}
-                                    strokeWidth={on ? 3 : 2}
-                                    strokeDasharray={on ? undefined : '4 6'}
+                                    strokeOpacity={on ? 0.55 : 1}
+                                    strokeWidth={sw}
+                                    strokeDasharray={on ? undefined : '3 6'}
                                     fill="none"
                                     strokeLinecap="round"
                                 />
                                 {on
-                                    ? [0, 1, 2].map(k => (
+                                    ? Array.from({ length: n }, (_, k) => (
                                           <circle
                                               key={k}
-                                              r={4}
+                                              r={sw / 2 + 2}
                                               className="ze-dot"
                                               style={
                                                   {
-                                                      color: c,
+                                                      color: '#fff',
+                                                      fill: c,
+                                                      stroke: '#fff',
+                                                      strokeOpacity: 0.6,
+                                                      strokeWidth: 1,
                                                       offsetPath: `path('${path}')`,
                                                       '--ze-t': `${t}s`,
-                                                      animationDelay: `${(-t * k) / 3}s`,
+                                                      animationDelay: `${(-t * k) / n}s`,
                                                   } as React.CSSProperties
                                               }
                                           />
@@ -817,25 +882,61 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                             </g>
                         );
                     })}
+                    {soc !== null ? (
+                        <g transform={`rotate(-90 ${nodes.akku.x} ${nodes.akku.y})`}>
+                            <circle
+                                cx={nodes.akku.x}
+                                cy={nodes.akku.y}
+                                r={nodes.akku.r + 7}
+                                fill="none"
+                                stroke="var(--sw-off-bg,#333338)"
+                                strokeWidth={4}
+                            />
+                            <circle
+                                cx={nodes.akku.x}
+                                cy={nodes.akku.y}
+                                r={nodes.akku.r + 7}
+                                fill="none"
+                                stroke={C.akku}
+                                strokeWidth={4}
+                                strokeLinecap="round"
+                                strokeDasharray={`${(ring * soc) / 100} ${ring}`}
+                            />
+                        </g>
+                    ) : null}
                     {(Object.keys(nodes) as N[]).map(k => {
                         const n = nodes[k];
                         const active = n.w > 5;
-                        const top = n.y < 100;
-                        const side = n.x < 240 ? 1 : -1;
-                        const tx = top ? n.x + side * (R + 12) : n.x;
-                        const anchor = top ? (side > 0 ? 'start' : 'end') : 'middle';
+                        const klein = k === 'wr';
+                        const gross = k === 'haus';
+                        const iconSize = gross ? 28 : klein ? 22 : 22;
+                        const iy = klein ? n.y - iconSize / 2 : n.y - (gross ? 30 : 24);
                         return (
                             <g key={k}>
                                 <circle
                                     cx={n.x}
                                     cy={n.y}
-                                    r={R}
+                                    r={n.r}
                                     fill="var(--sw-off-bg,#333338)"
+                                />
+                                {active ? (
+                                    <circle
+                                        cx={n.x}
+                                        cy={n.y}
+                                        r={n.r}
+                                        fill={`url(#ze-fill-${k}-${uid})`}
+                                    />
+                                ) : null}
+                                <circle
+                                    cx={n.x}
+                                    cy={n.y}
+                                    r={n.r}
+                                    fill="none"
                                     stroke={active ? n.c : 'var(--sw-off-bd,#44444a)'}
-                                    strokeWidth={2}
+                                    strokeWidth={gross ? 2.5 : 2}
                                 />
                                 <g
-                                    transform={`translate(${n.x - 13} ${n.y - 13}) scale(${26 / 24})`}
+                                    transform={`translate(${n.x - iconSize / 2} ${iy}) scale(${iconSize / 24})`}
                                     style={{ color: active ? n.c : '#8a887f' }}
                                     fill="none"
                                     stroke="currentColor"
@@ -845,25 +946,54 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                                     // static markup of this file only
                                     dangerouslySetInnerHTML={{ __html: n.icon }}
                                 />
-                                <text
-                                    x={tx}
-                                    y={top ? n.y : n.y + R + 22}
-                                    textAnchor={anchor}
-                                    style={{ font: `600 20px ${NUM}`, fill: 'var(--text,#ece9e1)' }}
-                                >
-                                    {watt(n.w, lang)}
-                                </text>
-                                <text
-                                    x={tx}
-                                    y={top ? n.y + 18 : n.y + R + 39}
-                                    textAnchor={anchor}
-                                    style={{
-                                        font: "500 13px 'Zuhause Barlow',Barlow,system-ui,sans-serif",
-                                        fill: 'var(--text-2,#a3a19a)',
-                                    }}
-                                >
-                                    {n.label}
-                                </text>
+                                {klein ? (
+                                    <>
+                                        <text
+                                            x={n.x}
+                                            y={n.y + n.r + 20}
+                                            textAnchor="middle"
+                                            style={{ font: `600 17px ${NUM}`, fill: 'var(--text,#ece9e1)' }}
+                                        >
+                                            {watt(n.w, lang)}
+                                        </text>
+                                        <text
+                                            x={n.x}
+                                            y={n.y + n.r + 35}
+                                            textAnchor="middle"
+                                            className="ze-fl"
+                                        >
+                                            {n.label}
+                                        </text>
+                                    </>
+                                ) : (
+                                    <>
+                                        <text
+                                            x={n.x}
+                                            y={n.y + (gross ? 20 : 15)}
+                                            textAnchor="middle"
+                                            style={{
+                                                font: `600 ${gross ? 25 : 18}px ${NUM}`,
+                                                fill: 'var(--text,#ece9e1)',
+                                            }}
+                                        >
+                                            {watt(n.w, lang)}
+                                        </text>
+                                        <text
+                                            x={n.x}
+                                            y={
+                                                k === 'solar'
+                                                    ? n.y - n.r - 10
+                                                    : k === 'akku'
+                                                      ? n.y + n.r + 26
+                                                      : n.y + n.r + 22
+                                            }
+                                            textAnchor="middle"
+                                            className="ze-fl"
+                                        >
+                                            {n.label}
+                                        </text>
+                                    </>
+                                )}
                             </g>
                         );
                     })}
