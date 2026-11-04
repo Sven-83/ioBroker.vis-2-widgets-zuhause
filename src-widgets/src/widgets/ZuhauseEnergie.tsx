@@ -203,6 +203,12 @@ const CSS = `
 .ze-meter{height:8px;border-radius:4px;background:var(--sw-off-bg,#333338);overflow:hidden;display:flex;gap:2px}
 .ze-meter>i{display:block;height:100%}
 .ze-hinweis{font-size:12px;color:var(--text-2,#a3a19a);margin-top:auto;line-height:1.35}
+.ze-kf{flex:1 1 24px;min-width:18px;height:3px;margin-top:30px;border-radius:2px;background:var(--border,#36363b);position:relative}
+.ze-kf i{position:absolute;top:50%;left:0;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;box-shadow:0 0 6px currentColor;animation:ze-kf-run 2s linear infinite}
+.ze-kf.rev i{animation-direction:reverse}
+@keyframes ze-kf-run{from{left:0}to{left:calc(100% - 7px)}}
+.zh-still .ze-kf i{animation:none;opacity:0}
+@media (prefers-reduced-motion:reduce){.ze-kf i{animation:none;opacity:0}}
 .ze-fl{font:500 13px 'Zuhause Barlow',Barlow,system-ui,sans-serif;fill:var(--text-2,#a3a19a)}
 @keyframes ze-move{from{offset-distance:0%}to{offset-distance:100%}}
 .ze-dot{animation:ze-move var(--ze-t,2.4s) linear infinite}
@@ -615,8 +621,34 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         const warn = h?.art === 'cloud';
         // the head line only speaks up when the cloud is gone
         const fuss = warn ? h.text : '';
+        const solarHeute = Number(this.val('today.solarKwh'));
+        // stream between two values; netz: + import flows right → left (into the house)
+        const strom = (w: number, c: string, netz = false): React.JSX.Element => {
+            const on = Math.abs(w) > 5;
+            const t = Math.max(0.8, 2.6 - Math.log10(Math.max(Math.abs(w), 50) / 50) * 1.1);
+            return (
+                <span
+                    className={`ze-kf${netz && w > 0 ? ' rev' : ''}`}
+                    style={{ background: on ? `${c}55` : undefined }}
+                >
+                    {on
+                        ? [0, 1].map(k => (
+                              <i
+                                  key={k}
+                                  style={{
+                                      background: c,
+                                      color: c,
+                                      animationDuration: `${t}s`,
+                                      animationDelay: `${(-t * k) / 2}s`,
+                                  }}
+                              />
+                          ))
+                        : null}
+                </span>
+            );
+        };
         const item = (label: string, text: string, color?: string, sub?: string, bar?: number): React.JSX.Element => (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flex: '0 1 auto' }}>
                 <span
                     style={{
                         display: 'flex',
@@ -693,7 +725,11 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                         ? e => (e.key === 'Enter' || e.key === ' ') && this.go(this.state.rxData.klickView)
                         : undefined
                 }
-                className={['zh-btn', warn ? 'zh-a-warn' : ''].join(' ')}
+                className={[
+                    'zh-btn',
+                    warn ? 'zh-a-warn' : '',
+                    motionClass(this.state.rxData.animationStufe, this.state.rxData.nachtAus, new Date()),
+                ].join(' ')}
                 style={{
                     width: '100%',
                     height: '100%',
@@ -745,23 +781,24 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                     </span>
                     {this.state.rxData.klickView ? <span style={{ fontSize: 16, color: v('text-2') }}>›</span> : null}
                 </div>
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                        gap: 6,
-                        flex: 1,
-                        alignItems: 'start',
-                    }}
-                >
-                    {item('WECHSELRICHTER', watt(f.wrW, lang), C.akku, f.wrW > 5 ? 'aus dem Akku ins Haus' : 'aus')}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1 }}>
+                    {item(
+                        'SOLAR',
+                        watt(f.solarW, lang),
+                        C.solar,
+                        Number.isFinite(solarHeute) ? `heute ${kwh(solarHeute, lang)}` : undefined,
+                    )}
+                    {strom(f.solarW, C.solar)}
+                    {item('WECHSELRICHTER', watt(f.wrW, lang), C.akku, f.wrW > 5 ? 'ins Haus' : 'aus')}
+                    {strom(f.wrW, C.akku)}
+                    {item('VERBRAUCH', watt(f.hausW, lang), C.haus, 'Haus gesamt')}
+                    {strom(f.netzW, C.netz, true)}
                     {item(
                         f.netzW < 0 ? 'EINSPEISUNG' : 'NETZ',
                         watt(Math.abs(f.netzW), lang),
                         C.netz,
                         f.netzW < -5 ? 'ins Netz' : f.netzW > 5 ? 'Bezug' : 'ausgeglichen',
                     )}
-                    {item('GESAMTVERBRAUCH', watt(f.hausW, lang), C.haus, 'Haus')}
                 </div>
             </section>
         );
