@@ -405,7 +405,7 @@ export function hinweis(
         return { art: 'cloud', text: 'Sunlit-Cloud nicht erreichbar' };
     }
     if (o.soc !== null && o.soc !== undefined && o.soc !== '' && num(o.soc) <= o.minSoc) {
-        return { art: 'leer', text: 'Akku leer' };
+        return { art: 'leer', text: 'Akku an der Grenze · Strom aus dem Netz' };
     }
     return null;
 }

@@ -535,6 +535,23 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         );
     }
 
+    /** today as one bar (cloud day statistics) */
+    private heute(now: Date): Balken {
+        const b = tagBucket(now, now, this.statistik());
+        const anlage = b ? Math.min(b.anlage, b.verbrauch) : 0;
+        return {
+            label: '',
+            titel: '',
+            ertrag: b?.ertrag ?? 0,
+            verbrauch: b?.verbrauch ?? 0,
+            anlage,
+            netz: b ? Math.max(0, b.verbrauch - anlage) : 0,
+            earnings: b?.earnings ?? 0,
+            leer: !b,
+            jetzt: true,
+        };
+    }
+
     private renderKachel(): React.JSX.Element {
         const lang = ZuhauseEnergie.getLanguage();
         const f = this.live();
@@ -545,16 +562,32 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         const fullAt = Number(this.val('live.fullAt')) || null;
         const emptyAt = Number(this.val('live.emptyAt')) || null;
         const solarHeute = Number(this.val('today.solarKwh'));
-        const fuss = h
+        const t = summe([this.heute(now)], Number(this.state.rxData.strompreis) || 0);
+        const socN = Number(soc);
+        const hatSoc = soc !== undefined && soc !== null && Number.isFinite(socN);
+        const minSoc = this.minSoc();
+        const akkuSub =
+            f.akkuW > 20
+                ? `lädt ${watt(f.akkuW, lang)}`
+                : f.akkuW < -20
+                  ? `gibt ${watt(-f.akkuW, lang)}`
+                  : hatSoc && socN <= minSoc
+                    ? `an Grenze ${formatNumber(minSoc, 0, lang)} %`
+                    : 'Ruhe';
+        // only a lost cloud turns the card red; a battery at its limit is normal every night
+        const warn = h?.art === 'cloud';
+        const fuss = warn
             ? h.text
             : [
                   Number.isFinite(solarHeute) ? `Heute ${kwh(solarHeute, lang)} Solar` : '',
+                  t.autarkie !== null ? `Autarkie ${prozent(t.autarkie, lang)}` : '',
+                  t.ersparnis > 0 ? `gespart ${euro(t.ersparnis, lang)}` : '',
                   fullAt ? `Akku voll ${uhrzeit(fullAt, now)}` : emptyAt ? `Akku leer ${uhrzeit(emptyAt, now)}` : '',
               ]
                   .filter(Boolean)
                   .join(' · ');
-        const item = (label: string, text: string, color?: string): React.JSX.Element => (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        const item = (label: string, text: string, color?: string, sub?: string, bar?: number): React.JSX.Element => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                 <span
                     style={{
                         display: 'flex',
@@ -582,6 +615,42 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                 >
                     {text}
                 </span>
+                {bar !== undefined ? (
+                    <i
+                        style={{
+                            display: 'block',
+                            position: 'relative',
+                            height: 4,
+                            borderRadius: 2,
+                            marginTop: 1,
+                            background: v('sw-off-bg'),
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <b
+                            style={{
+                                display: 'block',
+                                height: '100%',
+                                width: `${Math.max(0, Math.min(100, bar))}%`,
+                                borderRadius: 2,
+                                background: C.akku,
+                            }}
+                        />
+                    </i>
+                ) : null}
+                {sub ? (
+                    <span
+                        style={{
+                            fontSize: 11,
+                            color: v('text-2'),
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}
+                    >
+                        {sub}
+                    </span>
+                ) : null}
             </div>
         );
         return (
@@ -595,13 +664,13 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                         ? e => (e.key === 'Enter' || e.key === ' ') && this.go(this.state.rxData.klickView)
                         : undefined
                 }
-                className={['zh-btn', h ? 'zh-a-warn' : ''].join(' ')}
+                className={['zh-btn', warn ? 'zh-a-warn' : ''].join(' ')}
                 style={{
                     width: '100%',
                     height: '100%',
                     boxSizing: 'border-box',
-                    background: h ? v('warn-bg') : v('card'),
-                    border: `1px solid ${h ? v('warn-bd') : v('border')}`,
+                    background: warn ? v('warn-bg') : v('card'),
+                    border: `1px solid ${warn ? v('warn-bd') : v('border')}`,
                     borderRadius: v('radius-card'),
                     padding: '14px 18px',
                     display: 'flex',
@@ -617,52 +686,62 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                     <Ic
                         d={ICON.blitz}
                         size={16}
-                        color={h ? 'var(--warn-fg,#ffb3b3)' : 'var(--sw-on,#f2c14e)'}
+                        color={warn ? 'var(--warn-fg,#ffb3b3)' : 'var(--sw-on,#f2c14e)'}
                     />
-                    <span
-                        style={{ flex: 1, fontSize: 11, letterSpacing: '0.1em', fontWeight: 600, color: v('text-2') }}
-                    >
+                    <span style={{ fontSize: 11, letterSpacing: '0.1em', fontWeight: 600, color: v('text-2') }}>
                         ENERGIE
+                    </span>
+                    <span
+                        style={{
+                            flex: 1,
+                            minWidth: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: 5,
+                            fontSize: 11.5,
+                            color: warn ? v('warn-fg') : v('text-2'),
+                            fontWeight: warn ? 600 : 400,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                        }}
+                    >
+                        {warn ? (
+                            <Ic
+                                d={ICON.cloud}
+                                size={14}
+                            />
+                        ) : null}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{fuss}</span>
                     </span>
                     {this.state.rxData.klickView ? <span style={{ fontSize: 16, color: v('text-2') }}>›</span> : null}
                 </div>
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                        gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
                         gap: 6,
                         flex: 1,
-                        alignItems: 'center',
+                        alignItems: 'start',
                     }}
                 >
-                    {item(f.netzW < 0 ? 'EINSPEISUNG' : 'NETZ', watt(Math.abs(f.netzW), lang), C.netz)}
-                    {item('SOLAR', watt(f.solarW, lang), C.solar)}
-                    {item('AKKU', soc === undefined || soc === null ? '—' : `${formatNumber(soc, 0, lang)} %`, C.akku)}
-                    {item('HAUS', watt(f.hausW, lang))}
+                    {item('SOLAR', watt(f.solarW, lang), C.solar, f.solarW > 5 ? 'Sonne' : 'aus')}
+                    {item(
+                        'AKKU',
+                        hatSoc ? `${formatNumber(socN, 0, lang)} %` : '—',
+                        C.akku,
+                        akkuSub,
+                        hatSoc ? socN : undefined,
+                    )}
+                    {item('WECHSELR.', watt(f.wrW, lang), C.akku, f.wrW > 5 ? 'ins Haus' : 'aus')}
+                    {item('HAUS', watt(f.hausW, lang), undefined, 'Verbrauch')}
+                    {item(
+                        f.netzW < 0 ? 'EINSPEISUNG' : 'NETZ',
+                        watt(Math.abs(f.netzW), lang),
+                        C.netz,
+                        f.netzW < -5 ? 'ins Netz' : f.netzW > 5 ? 'Bezug' : 'ausgeglichen',
+                    )}
                 </div>
-                {fuss ? (
-                    <span
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            fontSize: 11.5,
-                            color: h ? v('warn-fg') : v('text-2'),
-                            fontWeight: h ? 600 : 400,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                        }}
-                    >
-                        {h ? (
-                            <Ic
-                                d={h.art === 'cloud' ? ICON.cloud : ICON.warn}
-                                size={14}
-                            />
-                        ) : null}
-                        {fuss}
-                    </span>
-                ) : null}
             </section>
         );
     }
@@ -712,7 +791,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                                 Prognose heute <b>{kwh(p.heute, lang)}</b> · morgen <b>{kwh(p.morgen, lang)}</b>
                             </div>
                         ) : null}
-                        <div className={`ze-pill${h ? ' warn' : ''}`}>
+                        <div className={`ze-pill${h?.art === 'cloud' ? ' warn' : ''}`}>
                             <Ic
                                 d={h ? (h.art === 'cloud' ? ICON.cloud : ICON.warn) : ICON.cloud}
                                 size={20}
@@ -1292,26 +1371,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         const tab = this.state.zeTab;
         const s = this.statistik();
         const preis = Number(this.state.rxData.strompreis) || 0;
-        const liste =
-            tab === 'heute'
-                ? [
-                      ((): Balken => {
-                          const b = tagBucket(now, now, s);
-                          const anlage = b ? Math.min(b.anlage, b.verbrauch) : 0;
-                          return {
-                              label: '',
-                              titel: '',
-                              ertrag: b?.ertrag ?? 0,
-                              verbrauch: b?.verbrauch ?? 0,
-                              anlage,
-                              netz: b ? Math.max(0, b.verbrauch - anlage) : 0,
-                              earnings: b?.earnings ?? 0,
-                              leer: !b,
-                              jetzt: true,
-                          };
-                      })(),
-                  ]
-                : balkenListe(tab, s, now);
+        const liste = tab === 'heute' ? [this.heute(now)] : balkenListe(tab, s, now);
         const t = summe(liste, preis);
         const legend =
             tab === 'heute'
