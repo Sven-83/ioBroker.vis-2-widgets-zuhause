@@ -86,6 +86,7 @@ const LIVE = [
     'live.emptyAt',
     'live.mppt',
     'live.moduleSoc',
+    'live.minSoc',
     'live.batteryStatus',
     'today.curve',
     'today.solarKwh',
@@ -290,7 +291,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                             default: 0,
                             step: 0.01,
                         },
-                        { name: 'minSoc', type: 'number', label: 'energie_minsoc', default: 10, min: 0, max: 50 },
+                        { name: 'minSoc', type: 'number', label: 'energie_minsoc', default: 0, min: 0, max: 50 },
                         {
                             name: 'prognose',
                             type: 'checkbox',
@@ -512,13 +513,23 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         });
     }
 
+    /** discharge limit: the widget field when set, else the value from the app (live.minSoc), else 10 % */
+    private minSoc(): number {
+        const feld = Number(this.state.rxData.minSoc);
+        if (feld > 0) {
+            return feld;
+        }
+        const app = Number(this.val('live.minSoc'));
+        return app > 0 ? app : 10;
+    }
+
     private hinweis(): ReturnType<typeof hinweis> {
         return hinweis(
             {
                 verbunden: this.val('info.connection'),
                 lastSync: this.val('info.lastSync'),
                 soc: this.val('live.soc'),
-                minSoc: Number(this.state.rxData.minSoc) || 10,
+                minSoc: this.minSoc(),
             },
             Date.now(),
         );
@@ -866,7 +877,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         const soc = socRaw === null || socRaw === undefined || socRaw === '' ? null : Number(socRaw);
         const fullAt = Number(this.val('live.fullAt')) || null;
         const emptyAt = Number(this.val('live.emptyAt')) || null;
-        const minSoc = Number(this.state.rxData.minSoc) || 10;
+        const minSoc = this.minSoc();
         const module = parseModule(this.val('live.moduleSoc'));
         const status =
             f.akkuW > 20
@@ -947,6 +958,14 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                         strokeOpacity={0.5}
                         strokeDasharray="3 4"
                     />
+                    <text
+                        className="ze-ax"
+                        x={0}
+                        y={y(minSoc) + 13}
+                        textAnchor="start"
+                    >
+                        min {formatNumber(minSoc, 0, lang)} %
+                    </text>
                     {line ? (
                         <path
                             d={line}

@@ -214,7 +214,7 @@
     "energie_history_tip": "history.0, influxdb.0 …; liefert die Netz- und Ladestand-Kurve von heute",
     "energie_price": "Strompreis (€/kWh)",
     "energie_price_tip": "0 = Ersparnis laut Sunlit-App",
-    "energie_minsoc": "Akku leer bei (%)",
+    "energie_minsoc": "Akku leer bei (%), 0 = Wert aus der App",
     "energie_forecast": "Solar-Prognose",
     "energie_forecast_tip": "open-meteo für den Standort aus den ioBroker-Systemeinstellungen, abgeglichen mit dem eigenen Ertrag",
     "energie_back": "Zurück zu View"
