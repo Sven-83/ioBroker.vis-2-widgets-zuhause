@@ -203,10 +203,10 @@ const CSS = `
 .ze-meter{height:8px;border-radius:4px;background:var(--sw-off-bg,#333338);overflow:hidden;display:flex;gap:2px}
 .ze-meter>i{display:block;height:100%}
 .ze-hinweis{font-size:12px;color:var(--text-2,#a3a19a);margin-top:auto;line-height:1.35}
-.ze-kf{flex:1 1 24px;min-width:18px;height:3px;margin-top:30px;border-radius:2px;background:var(--border,#36363b);position:relative}
-.ze-kf i{position:absolute;top:50%;left:0;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;box-shadow:0 0 6px currentColor;animation:ze-kf-run 2s linear infinite}
+.ze-kf{flex:1 1 24px;min-width:18px;height:4px;margin-top:29px;border-radius:2px;background:var(--border,#36363b);position:relative;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.ze-kf i{position:absolute;top:0;bottom:0;left:-60px;right:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 16px,currentColor 27px,currentColor 33px,transparent 44px,transparent 60px);filter:brightness(1.25);animation:ze-kf-run 5s linear infinite}
 .ze-kf.rev i{animation-direction:reverse}
-@keyframes ze-kf-run{from{left:0}to{left:calc(100% - 7px)}}
+@keyframes ze-kf-run{from{transform:translateX(0)}to{transform:translateX(60px)}}
 .zh-still .ze-kf i{animation:none;opacity:0}
 @media (prefers-reduced-motion:reduce){.ze-kf i{animation:none;opacity:0}}
 .ze-fl{font:500 13px 'Zuhause Barlow',Barlow,system-ui,sans-serif;fill:var(--text-2,#a3a19a)}
@@ -214,6 +214,10 @@ const CSS = `
 .ze-dot{animation:ze-move var(--ze-t,2.4s) linear infinite}
 .zh-still .ze-dot{animation:none;opacity:0}
 @media (prefers-reduced-motion:reduce){.ze-dot{animation:none;opacity:0}}
+.ze-puls{animation:ze-puls var(--ze-t,5s) linear infinite}
+@keyframes ze-puls{from{stroke-dashoffset:var(--ze-p,50)}to{stroke-dashoffset:0}}
+.zh-still .ze-puls{animation:none;opacity:0}
+@media (prefers-reduced-motion:reduce){.ze-puls{animation:none;opacity:0}}
 `;
 
 function ensureEnergieStyles(): void {
@@ -637,26 +641,14 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         // stream between two values; netz: + import flows right → left (into the house)
         const strom = (w: number, c: string, netz = false): React.JSX.Element => {
             const on = Math.abs(w) > 5;
-            // slow and calm: 7 s at 50 W … 3.5 s from about 2 kW
-            const t = Math.max(3.5, 7 - Math.log10(Math.max(Math.abs(w), 50) / 50) * 2.2);
+            // slow and calm: one pulse spacing (60 px) in 6 s at 50 W … 3 s from about 2 kW
+            const t = Math.max(3, 6 - Math.log10(Math.max(Math.abs(w), 50) / 50) * 1.9);
             return (
                 <span
                     className={`ze-kf${netz && w > 0 ? ' rev' : ''}`}
-                    style={{ background: on ? `${c}55` : undefined }}
+                    style={{ background: on ? `${c}33` : undefined }}
                 >
-                    {on
-                        ? [0, 1].map(k => (
-                              <i
-                                  key={k}
-                                  style={{
-                                      background: c,
-                                      color: c,
-                                      animationDuration: `${t}s`,
-                                      animationDelay: `${(-t * k) / 2}s`,
-                                  }}
-                              />
-                          ))
-                        : null}
+                    {on ? <i style={{ color: c, animationDuration: `${t}s` }} /> : null}
                 </span>
             );
         };
@@ -1115,51 +1107,42 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                     {/* wires with moving dots */}
                     {leitungen.map(([path, w, c, n], i) => {
                         const on = an(w);
-                        // faster dots with more power: 3 s at 50 W … 0.9 s at 2 kW
-                        const t = Math.max(0.9, 3 - Math.log10(Math.max(w, 50) / 50) * 1.3);
+                        // pulses along the wire: n pulses per wire, one spacing in 6 s at 50 W … 3 s at 2 kW
+                        const t = Math.max(3, 6 - Math.log10(Math.max(w, 50) / 50) * 1.9);
+                        const per = 100 / (n * 2);
+                        const puls = (breit: number, farbe: string, deck: number, glow = false): React.JSX.Element => (
+                            <path
+                                d={path}
+                                pathLength={100}
+                                stroke={farbe}
+                                strokeOpacity={deck}
+                                strokeWidth={breit}
+                                strokeDasharray={`${per * 0.4} ${per * 0.6}`}
+                                fill="none"
+                                strokeLinecap="round"
+                                className="ze-puls"
+                                filter={glow ? `url(#ze-glow-${uid})` : undefined}
+                                style={{ '--ze-t': `${t}s`, '--ze-p': per } as React.CSSProperties}
+                            />
+                        );
                         return (
                             <g key={i}>
-                                {on ? (
-                                    <path
-                                        d={path}
-                                        stroke={c}
-                                        strokeOpacity={0.4}
-                                        strokeWidth={8}
-                                        fill="none"
-                                        strokeLinecap="round"
-                                        filter={`url(#ze-glow-${uid})`}
-                                    />
-                                ) : null}
                                 <path
                                     d={path}
                                     stroke={on ? c : strich}
-                                    strokeOpacity={on ? 0.7 : 1}
+                                    strokeOpacity={on ? 0.35 : 1}
                                     strokeWidth={on ? 3 : 2}
                                     strokeDasharray={on ? undefined : '3 5'}
                                     fill="none"
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                 />
-                                {on
-                                    ? Array.from({ length: n }, (_, k) => (
-                                          <circle
-                                              key={k}
-                                              r={3.5}
-                                              className="ze-dot"
-                                              style={
-                                                  {
-                                                      fill: c,
-                                                      stroke: '#fff',
-                                                      strokeOpacity: 0.6,
-                                                      strokeWidth: 1,
-                                                      offsetPath: `path('${path}')`,
-                                                      '--ze-t': `${t}s`,
-                                                      animationDelay: `${(-t * k) / n}s`,
-                                                  } as React.CSSProperties
-                                              }
-                                          />
-                                      ))
-                                    : null}
+                                {on ? (
+                                    <>
+                                        {puls(9, c, 0.45, true)}
+                                        {puls(3, c, 0.95)}
+                                    </>
+                                ) : null}
                             </g>
                         );
                     })}
