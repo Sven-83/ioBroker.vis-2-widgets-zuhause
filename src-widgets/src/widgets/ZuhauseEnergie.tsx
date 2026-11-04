@@ -92,6 +92,8 @@ const LIVE = [
     'live.batteryStatus',
     'today.curve',
     'today.solarKwh',
+    'today.gridBuyKwh',
+    'today.gridRetKwh',
     'stats.days',
     'stats.daysPrev',
     'stats.months',
@@ -599,9 +601,31 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         );
     }
 
-    /** today as one bar (cloud day statistics) */
+    /**
+     * today as one bar: yield and system energy from the cloud day statistics; grid import and
+     * export from the meter counters (today.gridBuyKwh / gridRetKwh) when present, because the
+     * cloud consumption leaves out part of the house — consumption = import − export + system
+     */
     private heute(now: Date): Balken {
         const b = tagBucket(now, now, this.statistik());
+        const zahl = (x: unknown): number | null =>
+            x === null || x === undefined || x === '' || !Number.isFinite(Number(x)) ? null : Number(x);
+        const bezug = zahl(this.val('today.gridBuyKwh'));
+        const einsp = zahl(this.val('today.gridRetKwh')) ?? 0;
+        if (bezug !== null) {
+            const anlage = b?.anlage ?? 0;
+            return {
+                label: '',
+                titel: '',
+                ertrag: b?.ertrag ?? 0,
+                verbrauch: Math.max(0, bezug - einsp + anlage),
+                anlage,
+                netz: bezug,
+                earnings: b?.earnings ?? 0,
+                leer: false,
+                jetzt: true,
+            };
+        }
         const anlage = b ? Math.min(b.anlage, b.verbrauch) : 0;
         return {
             label: '',
@@ -632,12 +656,30 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         const minSoc = this.minSoc();
         const akkuSub =
             f.akkuW > 20
-                ? `lädt ${watt(f.akkuW, lang)}`
+                ? `Laden ${watt(f.akkuW, lang)}`
                 : f.akkuW < -20
-                  ? `gibt ${watt(-f.akkuW, lang)}`
+                  ? `Entladen ${watt(-f.akkuW, lang)}`
                   : hatSoc && socN <= minSoc
-                    ? `an Grenze ${formatNumber(minSoc, 0, lang)} %`
-                    : 'Ruhe';
+                    ? `Minimum ${formatNumber(minSoc, 0, lang)} % erreicht`
+                    : 'Ruhezustand';
+        const kwhOf = (k: LiveKey): number | null => {
+            const x = this.val(k);
+            return x === null || x === undefined || x === '' || !Number.isFinite(Number(x)) ? null : Number(x);
+        };
+        const bezugHeute = kwhOf('today.gridBuyKwh');
+        const einspHeute = kwhOf('today.gridRetKwh');
+        const verbrauchHeute = this.heute(new Date());
+        const netzLabel = f.netzW > 5 ? 'NETZBEZUG' : f.netzW < -5 ? 'EINSPEISUNG' : 'NETZ';
+        const netzSub =
+            f.netzW > 5
+                ? bezugHeute !== null
+                    ? `heute ${kwh(bezugHeute, lang)}`
+                    : 'aus dem Netz'
+                : f.netzW < -5
+                  ? einspHeute !== null
+                      ? `heute ${kwh(einspHeute, lang)}`
+                      : 'ins Netz'
+                  : 'ausgeglichen';
         // stream between two values; netz: + import flows right → left (into the house)
         const strom = (w: number, c: string, netz = false): React.JSX.Element => {
             const on = Math.abs(w) > 5;
@@ -791,7 +833,7 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                         'SOLAR',
                         watt(f.solarW, lang),
                         C.solar,
-                        Number.isFinite(solarHeute) ? `heute ${kwh(solarHeute, lang)}` : undefined,
+                        Number.isFinite(solarHeute) ? `Ertrag heute ${kwh(solarHeute, lang)}` : undefined,
                     )}
                     {strom(f.solarW, C.solar)}
                     {item(
@@ -804,14 +846,14 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                     {strom(f.wrW, C.akku)}
                     {item('WECHSELR.', watt(f.wrW, lang), C.akku, f.wrW > 5 ? 'ins Haus' : 'aus')}
                     {strom(f.wrW, C.akku)}
-                    {item('VERBRAUCH', watt(f.hausW, lang), C.haus, 'Haus')}
-                    {strom(f.netzW, C.netz, true)}
                     {item(
-                        f.netzW < 0 ? 'EINSPEISUNG' : 'NETZ',
-                        watt(Math.abs(f.netzW), lang),
-                        C.netz,
-                        f.netzW < -5 ? 'ins Netz' : f.netzW > 5 ? 'Bezug' : 'ausgeglichen',
+                        'VERBRAUCH',
+                        watt(f.hausW, lang),
+                        C.haus,
+                        verbrauchHeute.leer ? 'Haus gesamt' : `heute ${kwh(verbrauchHeute.verbrauch, lang)}`,
                     )}
+                    {strom(f.netzW, C.netz, true)}
+                    {item(netzLabel, watt(Math.abs(f.netzW), lang), C.netz, netzSub)}
                 </div>
             </section>
         );
@@ -1102,7 +1144,12 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
                         strokeWidth={3}
                         strokeLinecap="round"
                     />
-                    {text(mast.x, mast.o - 24, watt(netzW, lang), einspeisung ? 'Einspeisung' : 'Netz')}
+                    {text(
+                        mast.x,
+                        mast.o - 24,
+                        watt(netzW, lang),
+                        einspeisung ? 'Einspeisung' : an(netzW) ? 'Netzbezug' : 'Netz',
+                    )}
 
                     {/* wires with moving dots */}
                     {leitungen.map(([path, w, c, n], i) => {
