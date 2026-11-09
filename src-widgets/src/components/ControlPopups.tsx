@@ -667,8 +667,12 @@ export function HaubePopup(p: {
                         <HaubeButton
                             text={preset.light ? 'An' : 'Aus'}
                             look={preset.light ? 'lit' : undefined}
-                            disabled={preset.level === 0}
-                            onClick={() => p.onPreset([{ key: 'light', value: !preset.light }])}
+                            // not greyed out at level 0: the light is part of that preset, it just cannot go off
+                            onClick={() => {
+                                if (preset.level > 0) {
+                                    p.onPreset([{ key: 'light', value: !preset.light }]);
+                                }
+                            }}
                         />
                     ) : (
                         <HaubeButton
