@@ -222,5 +222,21 @@
     "haube_label": "Cooker hood",
     "haube_instance": "falmec instance",
     "haube_instance_tip": "Instance of the adapter falmec, e.g. falmec.0",
-    "haube_name": "Name in the popup"
+    "haube_name": "Name in the popup",
+    "circle_a_letter": "Letter A",
+    "circle_a_armed": "armed (state) A",
+    "circle_a_selected": "selected (state) A",
+    "circle_b_letter": "Letter B",
+    "circle_b_armed": "armed (state) B",
+    "circle_b_selected": "selected (state) B",
+    "circle_c_letter": "Letter C",
+    "circle_c_armed": "armed (state) C",
+    "circle_c_selected": "selected (state) C",
+    "group_circles": "Circles (ring around the icon)",
+    "circle_armed_tip": "true = armed, e.g. blink.0.networks.<id>.armed",
+    "circle_selected_tip": "true = switched by this tile, e.g. blink.0.networks.<id>.armWithAll",
+    "circle_a_running": "running (state) A",
+    "circle_b_running": "running (state) B",
+    "circle_c_running": "running (state) C",
+    "circle_running_tip": "true = command running, e.g. blink.0.networks.<id>.armPending"
 }

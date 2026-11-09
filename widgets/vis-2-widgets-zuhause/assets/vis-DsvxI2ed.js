@@ -50,6 +50,10 @@ ${l(`Zuhause Barlow Condensed`,600,i)}
 .zh-a-once{transform-box:fill-box;transform-origin:center;animation:zh-once 2.5s ease-in-out infinite}
 .zh-a-slats{animation:zh-slats 1.6s ease-in-out infinite}
 .zh-a-led{animation:zh-led 4s linear infinite}
+@keyframes zh-ring{0%,100%{opacity:.55}50%{opacity:1}}
+.zh-a-ring{animation:zh-ring 2.6s ease-in-out infinite}
+@keyframes zh-dash{to{stroke-dashoffset:-14}}
+.zh-a-dash{animation:zh-dash 1s linear infinite}
 .zh-a-shake{animation:zh-shake .5s linear infinite}
 .zh-d2{animation-delay:.4s}
 .zh-d3{animation-delay:.8s}

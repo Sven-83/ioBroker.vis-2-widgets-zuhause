@@ -12,6 +12,8 @@ import type VisRxWidget from '@iobroker/types-vis-2/visRxWidget';
 
 import { Icon } from '../components/Icon';
 import { IconPicker } from '../components/IconPicker';
+import { KreisRing } from '../components/KreisRing';
+import { type Kreis, kreisBuchstabe } from '../lib/kreise';
 import { PinPad, ViewPopup } from '../components/Overlays';
 import { Scaled } from '../components/Scaled';
 import { TILE_BASE, Tile } from '../components/Tile';
@@ -50,7 +52,18 @@ const ID_FIELDS = [
     'badgeLicht',
     'oidEmpfang',
     'oidBatterie',
+    'oidScharfKreisA',
+    'oidAuswahlKreisA',
+    'oidScharfKreisB',
+    'oidAuswahlKreisB',
+    'oidScharfKreisC',
+    'oidAuswahlKreisC',
+    'oidLaeuftKreisA',
+    'oidLaeuftKreisB',
+    'oidLaeuftKreisC',
 ] as const;
+/** up to three circles in a ring around the icon; letters, not digits, so VIS-2 subscribes the id fields */
+const KREISE = ['A', 'B', 'C'] as const;
 /**
  * id fields VIS-2 does not subscribe: it strips trailing digits before looking up the field type
  * ("badgeCo2" -> "badgeCo"), so the widget subscribes them itself
@@ -89,6 +102,18 @@ interface KachelRxData {
     animation: string;
     animationStufe: string;
     nachtAus: boolean;
+    buchstabeKreisA: string;
+    oidScharfKreisA: string;
+    oidAuswahlKreisA: string;
+    oidLaeuftKreisA: string;
+    buchstabeKreisB: string;
+    oidScharfKreisB: string;
+    oidAuswahlKreisB: string;
+    oidLaeuftKreisB: string;
+    buchstabeKreisC: string;
+    oidScharfKreisC: string;
+    oidAuswahlKreisC: string;
+    oidLaeuftKreisC: string;
 }
 
 interface KachelState extends VisRxWidgetState {
@@ -203,6 +228,35 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
                         { name: 'iconAuto', type: 'checkbox', label: 'icon_auto', default: true },
                         { name: 'iconEigen', type: 'image', label: 'icon_own' },
                     ],
+                },
+                {
+                    name: 'kreise',
+                    label: 'group_circles',
+                    fields: KREISE.flatMap(k => [
+                        {
+                            name: `buchstabeKreis${k}`,
+                            type: 'text' as const,
+                            label: `circle_${k.toLowerCase()}_letter`,
+                        },
+                        {
+                            name: `oidScharfKreis${k}`,
+                            type: 'id' as const,
+                            label: `circle_${k.toLowerCase()}_armed`,
+                            tooltip: 'circle_armed_tip',
+                        },
+                        {
+                            name: `oidAuswahlKreis${k}`,
+                            type: 'id' as const,
+                            label: `circle_${k.toLowerCase()}_selected`,
+                            tooltip: 'circle_selected_tip',
+                        },
+                        {
+                            name: `oidLaeuftKreis${k}`,
+                            type: 'id' as const,
+                            label: `circle_${k.toLowerCase()}_running`,
+                            tooltip: 'circle_running_tip',
+                        },
+                    ]),
                 },
                 {
                     name: 'alarm',
@@ -493,8 +547,44 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
 
     // ---------------------------------------------------------------- render
 
+    /** configured circles: a letter or an "armed" data point makes a circle */
+    private kreise(): Kreis[] {
+        const d = this.state.rxData;
+        const bool = (oid: string | undefined): boolean | undefined => {
+            const value = oid ? this.val(oid) : undefined;
+            return typeof value === 'boolean' ? value : value === undefined || value === null ? undefined : isOn(value);
+        };
+        return KREISE.flatMap(k => {
+            const buchstabe = kreisBuchstabe(d[`buchstabeKreis${k}`]);
+            const scharf = d[`oidScharfKreis${k}`];
+            if (!buchstabe && !scharf) {
+                return [];
+            }
+            return [
+                {
+                    buchstabe,
+                    scharf: bool(scharf),
+                    gewaehlt: bool(d[`oidAuswahlKreis${k}`]),
+                    laeuft: bool(d[`oidLaeuftKreis${k}`]) === true,
+                },
+            ];
+        });
+    }
+
     private renderIcon(animate: boolean, garageAnimate: boolean): React.JSX.Element {
         const d = this.state.rxData;
+        const kreise = this.kreise();
+        if (kreise.length > 0) {
+            // garageAnimate = animations allowed at all: the ring also moves while switching
+            return (
+                <KreisRing
+                    kreise={kreise}
+                    on={isActive(tileLook(asTileType(d.typ), this.on, !!d.warnBei))}
+                    pending={this.state.zhPending}
+                    animate={garageAnimate}
+                />
+            );
+        }
         const name = d.icon || 'licht';
         if (d.iconEigen) {
             // own SVG from the VIS files, coloured through the mask with currentColor

@@ -222,5 +222,21 @@
     "haube_label": "Dunstabzug",
     "haube_instance": "falmec-Instanz",
     "haube_instance_tip": "Instanz des Adapters falmec, z. B. falmec.0",
-    "haube_name": "Name im Popup"
+    "haube_name": "Name im Popup",
+    "circle_a_letter": "Buchstabe A",
+    "circle_a_armed": "scharf (Datenpunkt) A",
+    "circle_a_selected": "ausgewählt (Datenpunkt) A",
+    "circle_b_letter": "Buchstabe B",
+    "circle_b_armed": "scharf (Datenpunkt) B",
+    "circle_b_selected": "ausgewählt (Datenpunkt) B",
+    "circle_c_letter": "Buchstabe C",
+    "circle_c_armed": "scharf (Datenpunkt) C",
+    "circle_c_selected": "ausgewählt (Datenpunkt) C",
+    "group_circles": "Kreise (Ring um das Symbol)",
+    "circle_armed_tip": "true = scharf, z. B. blink.0.networks.<id>.armed",
+    "circle_selected_tip": "true = wird von dieser Kachel mit geschaltet, z. B. blink.0.networks.<id>.armWithAll",
+    "circle_a_running": "läuft (Datenpunkt) A",
+    "circle_b_running": "läuft (Datenpunkt) B",
+    "circle_c_running": "läuft (Datenpunkt) C",
+    "circle_running_tip": "true = Befehl läuft, z. B. blink.0.networks.<id>.armPending"
 }
