@@ -53,6 +53,12 @@ export interface TileProps {
     lockPulse?: boolean;
     /** class for the animation level (zh-dezent / zh-still) */
     levelClass?: string;
+    /** name for screen readers, when it differs from the visible label */
+    ariaLabel?: string;
+    /** leaves out an empty label, so the icon sits in the middle */
+    hideEmptyLabel?: boolean;
+    /** drawn on top of the tile, e.g. a timer ring */
+    overlay?: React.ReactNode;
     scale: number;
     title?: string;
     onPointerDown?: (e: React.PointerEvent) => void;
@@ -130,7 +136,7 @@ export function Tile(p: TileProps): React.JSX.Element {
         <div
             role={p.clickable ? 'button' : undefined}
             tabIndex={p.clickable ? 0 : undefined}
-            aria-label={p.label}
+            aria-label={p.ariaLabel || p.label}
             title={p.title}
             className={['zh-tile', p.warnPulse ? 'zh-a-warn' : '', p.levelClass || ''].join(' ')}
             onPointerDown={p.onPointerDown}
@@ -173,20 +179,23 @@ export function Tile(p: TileProps): React.JSX.Element {
                     style={{ position: 'absolute', inset: 0, background: '#a3161d', pointerEvents: 'none' }}
                 />
             ) : null}
+            {p.overlay}
             <span style={{ position: 'relative', display: 'flex' }}>{p.icon}</span>
-            <span
-                style={{
-                    position: 'relative',
-                    maxWidth: TILE_BASE - 8,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    lineHeight: 1.1,
-                    letterSpacing: p.alarm ? '0.06em' : undefined,
-                }}
-            >
-                {p.label}
-            </span>
+            {p.label || !p.hideEmptyLabel ? (
+                <span
+                    style={{
+                        position: 'relative',
+                        maxWidth: TILE_BASE - 8,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        lineHeight: 1.1,
+                        letterSpacing: p.alarm ? '0.06em' : undefined,
+                    }}
+                >
+                    {p.label}
+                </span>
+            ) : null}
 
             {p.pending ? (
                 <span

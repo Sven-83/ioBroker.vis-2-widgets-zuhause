@@ -218,5 +218,9 @@
     "energie_forecast": "Solar-Prognose",
     "energie_forecast_tip": "open-meteo für den Standort aus den ioBroker-Systemeinstellungen, abgeglichen mit dem eigenen Ertrag",
     "energie_back": "Zurück zu View",
-    "energie_auto_back": "Automatisch zurück nach (Minuten, 0 = nie)"
+    "energie_auto_back": "Automatisch zurück nach (Minuten, 0 = nie)",
+    "haube_label": "Dunstabzug",
+    "haube_instance": "falmec-Instanz",
+    "haube_instance_tip": "Instanz des Adapters falmec, z. B. falmec.0",
+    "haube_name": "Name im Popup"
 }

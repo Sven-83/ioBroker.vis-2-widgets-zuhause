@@ -31,6 +31,7 @@ ${l(`Zuhause Barlow Condensed`,600,i)}
 @keyframes zh-toast{0%{transform:translate(-50%,8px);opacity:0}100%{transform:translate(-50%,0);opacity:1}}
 .zh-a-spin{transform-box:fill-box;transform-origin:center;animation:zh-spin 3.5s linear infinite}
 .zh-a-spin-fast{transform-box:fill-box;transform-origin:center;animation:zh-spin 2.5s linear infinite}
+.zh-a-rotor{animation:zh-spin 3s linear infinite}
 .zh-a-slow{transform-box:fill-box;transform-origin:center;animation:zh-spin 14s linear infinite}
 .zh-a-rise{animation:zh-rise 2.2s ease-in-out infinite}
 .zh-a-bubble{animation:zh-bubble 2.4s ease-in infinite}

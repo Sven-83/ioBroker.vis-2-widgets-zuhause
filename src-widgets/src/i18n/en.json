@@ -218,5 +218,9 @@
     "energie_forecast": "Solar forecast",
     "energie_forecast_tip": "open-meteo for the location of the ioBroker system settings, calibrated with the own yield",
     "energie_back": "Back to view",
-    "energie_auto_back": "Back automatically after (minutes, 0 = never)"
+    "energie_auto_back": "Back automatically after (minutes, 0 = never)",
+    "haube_label": "Cooker hood",
+    "haube_instance": "falmec instance",
+    "haube_instance_tip": "Instance of the adapter falmec, e.g. falmec.0",
+    "haube_name": "Name in the popup"
 }

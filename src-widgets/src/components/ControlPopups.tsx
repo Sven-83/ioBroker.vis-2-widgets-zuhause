@@ -6,6 +6,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
+import { HAUBE_LEVELS, HAUBE_TIMERS, type HaubePreset, presetLevelWrites, type PresetWrite } from '../lib/haube';
 import { formatNumber } from '../lib/model';
 import { POPUP_CLOSE_MS } from '../lib/plan';
 import { fonts, v } from '../lib/theme';
@@ -85,12 +86,17 @@ function Frame({
     label,
     onClose,
     children,
+    width = 360,
+    hint = 'Schließt nach dem Verstellen automatisch · ohne Eingabe nach 5 s',
 }: {
     kind: string;
     title: string;
     label: string;
     onClose: () => void;
     children: React.ReactNode;
+    width?: number;
+    /** line at the bottom; empty = none */
+    hint?: string;
 }): React.JSX.Element {
     return createPortal(
         <div
@@ -111,7 +117,7 @@ function Frame({
                 role="dialog"
                 aria-label={label}
                 style={{
-                    width: 360,
+                    width,
                     maxWidth: 'calc(100vw - 32px)',
                     boxSizing: 'border-box',
                     background: v('card'),
@@ -150,9 +156,7 @@ function Frame({
                     </button>
                 </div>
                 {children}
-                <span style={{ fontSize: 11, color: v('text-2'), textAlign: 'center' }}>
-                    Schließt nach dem Verstellen automatisch · ohne Eingabe nach 5 s
-                </span>
+                {hint ? <span style={{ fontSize: 11, color: v('text-2'), textAlign: 'center' }}>{hint}</span> : null}
             </div>
         </div>,
         document.body,
@@ -498,6 +502,242 @@ export function SetpointPopup(p: {
                     })}
                 </div>
             ) : null}
+        </Frame>
+    );
+}
+
+// ---------------------------------------------------------------- hood
+
+/** Button of the hood popup; `sel` = chosen value (green), `lit` = light on (yellow), `stop` = red */
+function HaubeButton(p: {
+    text: string;
+    look?: 'sel' | 'lit' | 'stop';
+    disabled?: boolean;
+    onClick: () => void;
+}): React.JSX.Element {
+    const looks: Record<string, React.CSSProperties> = {
+        sel: { background: v('st-on-bg'), border: `1.5px solid ${v('st-on-bd')}`, color: v('st-on-fg') },
+        lit: { background: v('sw-on'), border: `1px solid ${v('sw-on')}`, color: v('sw-on-fg') },
+        stop: { background: v('warn-bg'), border: `1px solid #6b3134`, color: v('warn-fg') },
+        off: { background: v('sw-off-bg'), border: `1px solid ${v('sw-off-bd')}`, color: v('sw-off-fg') },
+    };
+    return (
+        <button
+            type="button"
+            className="zh-btn"
+            aria-pressed={p.look === 'sel' || p.look === 'lit'}
+            disabled={p.disabled}
+            onClick={p.onClick}
+            style={{
+                height: 44,
+                padding: 0,
+                borderRadius: 12,
+                fontSize: 15,
+                fontWeight: 600,
+                opacity: p.disabled ? 0.38 : 1,
+                cursor: p.disabled ? 'default' : 'pointer',
+                ...looks[p.look || 'off'],
+            }}
+        >
+            {p.text}
+        </button>
+    );
+}
+
+function HaubeLine({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr', alignItems: 'center', gap: 10, minHeight: 52 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
+            {/* five equal columns, so the buttons of all lines stand exactly below each other */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>{children}</div>
+        </div>
+    );
+}
+
+/** Switch "Jetzt" / "Voreinstellung" at the top of the hood popup */
+function HaubeMode({ preset, onChange }: { preset: boolean; onChange: (preset: boolean) => void }): React.JSX.Element {
+    const part = (active: boolean, text: string, value: boolean): React.JSX.Element => (
+        <button
+            type="button"
+            role="radio"
+            className="zh-btn"
+            aria-checked={active}
+            onClick={() => onChange(value)}
+            style={{
+                position: 'relative',
+                border: 0,
+                background: 'transparent',
+                color: active ? v('text') : v('text-2'),
+                fontSize: 14,
+                fontWeight: 600,
+            }}
+        >
+            {text}
+        </button>
+    );
+    return (
+        <div
+            role="radiogroup"
+            aria-label="Was wird eingestellt"
+            style={{
+                position: 'relative',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                height: 44,
+                boxSizing: 'border-box',
+                padding: 3,
+                background: '#1f1f22',
+                border: `1px solid ${v('border')}`,
+                borderRadius: 12,
+            }}
+        >
+            <i
+                style={{
+                    position: 'absolute',
+                    left: 3,
+                    top: 3,
+                    bottom: 3,
+                    width: 'calc(50% - 3px)',
+                    borderRadius: 9,
+                    background: v('sw-off-bd'),
+                    transform: preset ? 'translateX(100%)' : undefined,
+                    transition: 'transform .18s ease',
+                }}
+            />
+            {part(!preset, 'Jetzt', false)}
+            {part(preset, 'Voreinstellung', true)}
+        </div>
+    );
+}
+
+export function HaubePopup(p: {
+    title: string;
+    status: string;
+    connected: boolean;
+    level: number;
+    light: boolean;
+    timerActive: boolean;
+    timerTotal: number;
+    timerText: string;
+    preset: HaubePreset;
+    onLevel: (level: number) => void;
+    onLight: (light: boolean) => void;
+    onTimer: (minutes: number) => void;
+    onTimerStop: () => void;
+    onPreset: (writes: PresetWrite[]) => void;
+    onClose: () => void;
+}): React.JSX.Element {
+    const restart = useAutoClose(p.onClose);
+    // always opens on "Jetzt": a stored choice could change the preset by accident
+    const [editPreset, setEditPreset] = React.useState(false);
+    const { preset } = p;
+    const canRun = p.connected && p.level > 0;
+
+    const note = editPreset
+        ? preset.level === 0
+            ? 'Stufe 0 schaltet nur das Licht ein; „alles aus“ ist nicht möglich.'
+            : 'Startet beim kurzen Tipp, wenn die Haube aus ist. Die Haube ändert sich hier nicht.'
+        : p.timerActive
+          ? `Noch ${p.timerText}, danach geht der Lüfter aus. Stopp lässt ihn weiterlaufen.`
+          : p.level
+            ? 'Antippen startet den Timer, danach geht der Lüfter aus.'
+            : 'Der Timer braucht einen laufenden Lüfter.';
+
+    return (
+        <Frame
+            kind="DUNSTABZUG"
+            title={p.title}
+            label={p.title}
+            onClose={p.onClose}
+            width={440}
+            hint=""
+        >
+            <div
+                onClickCapture={() => restart(POPUP_CLOSE_MS.idle)}
+                style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+            >
+                <span style={{ fontSize: 12, color: v('text-2'), marginBottom: 8 }}>{p.status}</span>
+                <HaubeMode
+                    preset={editPreset}
+                    onChange={setEditPreset}
+                />
+                <div style={{ height: 4 }} />
+                <HaubeLine label="Licht">
+                    {editPreset ? (
+                        <HaubeButton
+                            text={preset.light ? 'An' : 'Aus'}
+                            look={preset.light ? 'lit' : undefined}
+                            disabled={preset.level === 0}
+                            onClick={() => p.onPreset([{ key: 'light', value: !preset.light }])}
+                        />
+                    ) : (
+                        <HaubeButton
+                            text={p.light ? 'An' : 'Aus'}
+                            look={p.light ? 'lit' : undefined}
+                            disabled={!p.connected}
+                            onClick={() => p.onLight(!p.light)}
+                        />
+                    )}
+                </HaubeLine>
+                <HaubeLine label="Stufe">
+                    {HAUBE_LEVELS.map(n =>
+                        editPreset ? (
+                            <HaubeButton
+                                key={n}
+                                text={String(n)}
+                                look={preset.level === n ? 'sel' : undefined}
+                                onClick={() => p.onPreset(presetLevelWrites(preset, n))}
+                            />
+                        ) : (
+                            <HaubeButton
+                                key={n}
+                                text={String(n)}
+                                look={p.level === n ? 'sel' : undefined}
+                                disabled={!p.connected}
+                                onClick={() => p.onLevel(n)}
+                            />
+                        ),
+                    )}
+                </HaubeLine>
+                <HaubeLine label="Timer">
+                    {editPreset ? (
+                        <HaubeButton
+                            text="Ohne"
+                            look={preset.timer === 0 ? 'sel' : undefined}
+                            onClick={() => p.onPreset([{ key: 'timer', value: 0 }])}
+                        />
+                    ) : null}
+                    {HAUBE_TIMERS.map(m =>
+                        editPreset ? (
+                            <HaubeButton
+                                key={m}
+                                text={`${m} Min`}
+                                look={preset.timer === m ? 'sel' : undefined}
+                                disabled={preset.level === 0}
+                                onClick={() => p.onPreset([{ key: 'timer', value: m }])}
+                            />
+                        ) : (
+                            <HaubeButton
+                                key={m}
+                                text={`${m} Min`}
+                                look={p.timerActive && p.timerTotal === m ? 'sel' : undefined}
+                                disabled={!canRun}
+                                onClick={() => p.onTimer(m)}
+                            />
+                        ),
+                    )}
+                    {!editPreset && p.timerActive ? (
+                        <HaubeButton
+                            text="Stopp"
+                            look="stop"
+                            onClick={p.onTimerStop}
+                        />
+                    ) : null}
+                </HaubeLine>
+                <span style={{ fontSize: 12, color: v('text-2'), minHeight: 30, lineHeight: '15px', marginTop: 6 }}>
+                    {note}
+                </span>
+            </div>
         </Frame>
     );
 }
