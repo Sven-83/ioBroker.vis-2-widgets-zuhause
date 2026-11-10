@@ -13,7 +13,7 @@ import type VisRxWidget from '@iobroker/types-vis-2/visRxWidget';
 import { Icon } from '../components/Icon';
 import { IconPicker } from '../components/IconPicker';
 import { KreisRing } from '../components/KreisRing';
-import { type Kreis, kreisBuchstabe } from '../lib/kreise';
+import { type Kreis, kreisBuchstabe, kreiseLaufen } from '../lib/kreise';
 import { PinPad, ViewPopup } from '../components/Overlays';
 import { Scaled } from '../components/Scaled';
 import { TILE_BASE, Tile } from '../components/Tile';
@@ -468,7 +468,8 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
     }
 
     private tap = (): void => {
-        if (this.props.editMode) {
+        // a circle is still switching (e.g. Blink disarms after the PIN): a second tap would switch it back
+        if (this.props.editMode || this.busy) {
             return;
         }
         const typ = asTileType(this.state.rxData.typ);
@@ -571,6 +572,11 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
         });
     }
 
+    /** a circle of the ring is still switching (its "running" data point is true) */
+    private get busy(): boolean {
+        return kreiseLaufen(this.kreise());
+    }
+
     private renderIcon(animate: boolean, garageAnimate: boolean): React.JSX.Element {
         const d = this.state.rxData;
         const kreise = this.kreise();
@@ -580,7 +586,7 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
                 <KreisRing
                     kreise={kreise}
                     on={isActive(tileLook(asTileType(d.typ), this.on, !!d.warnBei))}
-                    pending={this.state.zhPending}
+                    pending={this.state.zhPending || kreiseLaufen(kreise)}
                     animate={garageAnimate}
                 />
             );
@@ -672,7 +678,7 @@ export default class ZuhauseKachel extends (window.visRxWidget as typeof VisRxWi
                                         : Number(d.batterieGrenze),
                                 )
                             }
-                            pending={this.state.zhPending}
+                            pending={this.state.zhPending || this.busy}
                             unconfirmed={this.state.zhUnconfirmed}
                             stale={isStale(ts, Number(d.veraltetNachMin) || 0, this.state.zhNow)}
                             alarm={alarm}

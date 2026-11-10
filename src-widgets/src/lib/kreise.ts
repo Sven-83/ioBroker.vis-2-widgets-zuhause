@@ -40,6 +40,16 @@ export function kreisLook(kreis: Kreis, pending: boolean): KreisLook {
 }
 
 /**
+ * A command of any circle is running (e.g. disarming after the PIN): the tile shows it is busy and ignores taps,
+ * so a second tap during the few seconds Blink needs cannot switch the circles back.
+ *
+ * @param kreise - Configured circles
+ */
+export function kreiseLaufen(kreise: readonly Kreis[]): boolean {
+    return kreise.some(kreis => kreis.laeuft === true);
+}
+
+/**
  * Letter of a circle: given text trimmed to two characters, upper case; empty if none.
  *
  * @param text - Configured text

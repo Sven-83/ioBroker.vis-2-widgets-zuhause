@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { kreisBuchstabe, kreisGeometrie, kreisLook } from './kreise';
+import { kreisBuchstabe, kreisGeometrie, kreisLook, kreiseLaufen } from './kreise';
 
 describe('kreise', () => {
     it('shows armed first, then waiting, selected or not', () => {
@@ -17,6 +17,13 @@ describe('kreise', () => {
         assert.equal(kreisLook({ buchstabe: 'G', scharf: true, gewaehlt: true, laeuft: true }, false), 'wartet');
         assert.equal(kreisLook({ buchstabe: 'G', scharf: false, gewaehlt: false, laeuft: true }, false), 'wartet');
         assert.equal(kreisLook({ buchstabe: 'G', scharf: true, gewaehlt: true, laeuft: false }, true), 'scharf');
+    });
+
+    it('is busy while any circle runs a command', () => {
+        const w = { buchstabe: 'W', scharf: true, gewaehlt: true };
+        assert.equal(kreiseLaufen([]), false);
+        assert.equal(kreiseLaufen([w, { ...w, laeuft: false }]), false);
+        assert.equal(kreiseLaufen([w, { ...w, buchstabe: 'G', laeuft: true }]), true);
     });
 
     it('keeps at most two letters in upper case', () => {
