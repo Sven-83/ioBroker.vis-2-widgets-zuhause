@@ -30,6 +30,7 @@ import {
     parseLinien,
     parseRaeume,
     pausiert,
+    reihenfolgeBefehl,
     saugerIds,
     saugt,
     skalaAnteile,
@@ -53,6 +54,8 @@ const W = 1357;
 const H = 900;
 /** pause between two writes before the start: the robot answers each setting by MQTT */
 const WRITE_GAP_MS = 1500;
+/** The map change (room order) needs a moment on the robot before the start */
+const ORDER_GAP_MS = 3000;
 
 interface SaugerRxData {
     titel: string;
@@ -539,6 +542,15 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         for (const w of writes) {
             this.set(w.id, w.value);
             await wait(WRITE_GAP_MS);
+            if (!this.alive) {
+                return;
+            }
+        }
+        // the robot follows the room order stored on its map, so store the chosen order first
+        if (raeume.length > 1) {
+            const alle = parseRaeume(this.rawField('raeume')).raeume.map(r => r.id);
+            this.set(ids.reihenfolge, reihenfolgeBefehl(raeume, alle));
+            await wait(ORDER_GAP_MS);
             if (!this.alive) {
                 return;
             }

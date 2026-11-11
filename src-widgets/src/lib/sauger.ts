@@ -80,6 +80,7 @@ export interface SaugerIds {
     m2: string;
     route: string;
     start: string;
+    reihenfolge: string;
     pause: string;
     weiter: string;
     stopp: string;
@@ -108,6 +109,7 @@ export function saugerIds(geraet: string): SaugerIds | null {
         m2: `${g}.control.MopWashArea`,
         route: `${g}.control.CleanRoute`,
         start: `${g}.control.StartCustom`,
+        reihenfolge: `${g}.control.CleanOrder`,
         pause: `${g}.control.Pause`,
         weiter: `${g}.control.Start`,
         stopp: `${g}.control.Stop`,
@@ -212,10 +214,30 @@ export function vorbereiten(wunsch: Einstellung, roboter: Einstellung, ids: Saug
     return out;
 }
 
-/** Value for control.StartCustom: [room, repeats, suction, water, order] per room */
+/**
+ * Value for control.CleanOrder (map action S6A2, newer maps: "cleanareaorder"). These robots clean the rooms
+ * of a job in the order stored on the map, not in the order of "selects", so the page stores the chosen
+ * order before the start: chosen rooms first, then all other known rooms (the list must stay complete).
+ */
+export function reihenfolgeBefehl(gewaehlt: number[], alle: number[]): string {
+    const ids: number[] = [];
+    for (const id of [...gewaehlt, ...alle]) {
+        if (Number.isInteger(id) && id > 0 && !ids.includes(id)) {
+            ids.push(id);
+        }
+    }
+    const cleanareaorder = ids.map((id, i) => ({ [String(id)]: i + 1 }));
+    return JSON.stringify([{ piid: 4, value: JSON.stringify({ cleanareaorder }) }]);
+}
+
+/**
+ * Value for control.StartCustom: [room, repeats, suction, water, 1] per room, rooms in the chosen order.
+ * The 5th field must stay 1 on robots with per-room settings (X40 & co.): with 2, 3, ... they only clean
+ * the first room (seen 2026-11-11, same note in Tasshack/dreame-vacuum clean_segment).
+ */
 export function startBefehl(raeume: number[], e: Einstellung): string {
     const rep = clamp(e.durchgaenge, 1, 3);
-    const selects = raeume.map((id, i) => [id, rep, e.saug, e.wasser, i + 1]);
+    const selects = raeume.map(id => [id, rep, e.saug, e.wasser, 1]);
     return JSON.stringify([
         { piid: 1, value: 18 },
         { piid: 10, value: JSON.stringify({ selects }) },

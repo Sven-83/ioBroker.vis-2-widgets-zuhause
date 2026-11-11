@@ -13,6 +13,7 @@ import {
     parseLinien,
     parseRaeume,
     pausiert,
+    reihenfolgeBefehl,
     saugerIds,
     skalaAnteile,
     startBefehl,
@@ -100,13 +101,23 @@ describe('sauger', () => {
         ]);
     });
 
-    it('builds the start command with order and repeats', () => {
+    it('stores the chosen room order first, then the other rooms, without duplicates', () => {
+        const cmd = JSON.parse(reihenfolgeBefehl([7, 2], [1, 2, 3, 7, 10, 7]));
+        assert.equal(cmd.length, 1);
+        assert.equal(cmd[0].piid, 4);
+        assert.deepEqual(JSON.parse(cmd[0].value), {
+            cleanareaorder: [{ 7: 1 }, { 2: 2 }, { 1: 3 }, { 3: 4 }, { 10: 5 }],
+        });
+        assert.equal(saugerIds('dreamehome.0.123')?.reihenfolge, 'dreamehome.0.123.control.CleanOrder');
+    });
+
+    it('builds the start command with repeats, 5th field always 1 (else only the first room is cleaned)', () => {
         const cmd = JSON.parse(startBefehl([6, 7], { ...STANDARD, saug: 3, wasser: 15, durchgaenge: 2 }));
         assert.deepEqual(cmd[0], { piid: 1, value: 18 });
         assert.deepEqual(JSON.parse(cmd[1].value), {
             selects: [
                 [6, 2, 3, 15, 1],
-                [7, 2, 3, 15, 2],
+                [7, 2, 3, 15, 1],
             ],
         });
     });
