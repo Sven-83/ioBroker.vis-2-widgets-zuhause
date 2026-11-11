@@ -301,6 +301,55 @@ export function fortschritt(reihenfolge: number[], raumJetzt: unknown, zustand: 
     return bisher;
 }
 
+/** Longest pause between the vacuum and the mop round (fetch and wash mops) before the job counts as done */
+export const WECHSEL_MAX_MS = 10 * 60_000;
+
+/** Course of a job: "nachein" (mop after vacuum) reports "done" once between the two rounds */
+export interface Ablauf {
+    /** task status said "running" at the last check */
+    lief: boolean;
+    /** 1 = first (or only) round, 2 = mop round of "nachein" */
+    runde: 1 | 2;
+    /** since when the robot is between the rounds (0 = not) */
+    wechselSeit: number;
+}
+
+export const ABLAUF_START: Ablauf = { lief: false, runde: 1, wechselSeit: 0 };
+
+/**
+ * Next step of the job course.
+ * start: a job begins · runde2: the mop round begins (progress starts again) · wechsel: between the rounds ·
+ * ende: the job is done · weiter: nothing new
+ */
+export function ablauf(
+    a: Ablauf,
+    laeuftJetzt: boolean,
+    modus: Modus | null,
+    jetzt: number,
+): { a: Ablauf; schritt: 'start' | 'runde2' | 'wechsel' | 'ende' | 'weiter' } {
+    if (laeuftJetzt) {
+        if (a.wechselSeit) {
+            return { a: { lief: true, runde: 2, wechselSeit: 0 }, schritt: 'runde2' };
+        }
+        if (!a.lief) {
+            return { a: { lief: true, runde: 1, wechselSeit: 0 }, schritt: 'start' };
+        }
+        return { a, schritt: 'weiter' };
+    }
+    if (a.lief) {
+        if (modus === 'nachein' && a.runde === 1) {
+            return { a: { lief: false, runde: 1, wechselSeit: jetzt }, schritt: 'wechsel' };
+        }
+        return { a: ABLAUF_START, schritt: 'ende' };
+    }
+    if (a.wechselSeit) {
+        return jetzt - a.wechselSeit > WECHSEL_MAX_MS
+            ? { a: ABLAUF_START, schritt: 'ende' }
+            : { a, schritt: 'wechsel' };
+    }
+    return { a, schritt: 'weiter' };
+}
+
 // ---------------------------------------------------------------- configuration
 
 export function parseRaeume(json: unknown): { raeume: SaugerRaum[]; fehler: string[] } {

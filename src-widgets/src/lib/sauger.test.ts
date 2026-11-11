@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+    ABLAUF_START,
+    ablauf,
     aktiveRaeume,
     anzeigen,
     ausRoboter,
@@ -19,6 +21,7 @@ import {
     startBefehl,
     STANDARD,
     vorbereiten,
+    WECHSEL_MAX_MS,
     wasserStufe,
 } from './sauger';
 
@@ -99,6 +102,35 @@ describe('sauger', () => {
         assert.deepEqual(vorbereiten({ ...robot, modus: 'wischen', saug: 0 }, robot, ids), [
             { id: ids.modus, value: 5121 },
         ]);
+    });
+
+    it('keeps a "mop after vacuum" job running between the two rounds', () => {
+        let r = ablauf(ABLAUF_START, true, 'nachein', 0);
+        assert.equal(r.schritt, 'start');
+        r = ablauf(r.a, true, 'nachein', 1000);
+        assert.equal(r.schritt, 'weiter');
+        // 18:00: "done" after the vacuum round
+        r = ablauf(r.a, false, 'nachein', 2000);
+        assert.equal(r.schritt, 'wechsel');
+        r = ablauf(r.a, false, 'nachein', 2000 + 60_000);
+        assert.equal(r.schritt, 'wechsel');
+        // mop round
+        r = ablauf(r.a, true, 'nachein', 3000 + 60_000);
+        assert.equal(r.schritt, 'runde2');
+        assert.equal(r.a.runde, 2);
+        // the real end
+        r = ablauf(r.a, false, 'nachein', 9_000_000);
+        assert.equal(r.schritt, 'ende');
+        assert.deepEqual(r.a, ABLAUF_START);
+    });
+
+    it('ends other jobs at once and a pause between the rounds after the limit', () => {
+        let r = ablauf(ABLAUF_START, true, 'beides', 0);
+        assert.equal(ablauf(r.a, false, 'beides', 1).schritt, 'ende');
+        r = ablauf(ABLAUF_START, true, 'nachein', 0);
+        r = ablauf(r.a, false, 'nachein', 10);
+        assert.equal(ablauf(r.a, false, 'nachein', 10 + WECHSEL_MAX_MS + 1).schritt, 'ende');
+        assert.equal(ablauf(ABLAUF_START, false, 'nachein', 5).schritt, 'weiter');
     });
 
     it('stores the chosen room order first, then the other rooms, without duplicates', () => {

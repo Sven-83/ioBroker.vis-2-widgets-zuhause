@@ -13,6 +13,7 @@ import type { RxRenderWidgetProps, RxWidgetInfo, VisRxWidgetProps, VisRxWidgetSt
 import type VisRxWidget from '@iobroker/types-vis-2/visRxWidget';
 
 import {
+    ABLAUF_START,
     M2_MAX,
     M2_MIN,
     MODI,
@@ -21,6 +22,8 @@ import {
     WASSER_MAX,
     WASSER_MIN,
     WASSER_STUFEN,
+    WECHSEL_MAX_MS,
+    ablauf,
     aktiveRaeume,
     anzeigen,
     ausRoboter,
@@ -39,6 +42,8 @@ import {
     vorbereiten,
     wasserStufe,
     wischt,
+    modusVonCode,
+    type Ablauf,
     type Ausstehend,
     type Einstellung,
     type Modus,
@@ -74,6 +79,8 @@ interface SaugerState extends VisRxWidgetState {
     zsPlanFehler: string;
     zsVorbereitung: string;
     zsFort: number;
+    /** between the vacuum and the mop round of "mop after vacuum" */
+    zsWechsel: boolean;
     zsTick: number;
     zsScale: number;
 }
@@ -280,6 +287,9 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
     private planUrl = '';
     private alive = true;
     private stepTimer?: ReturnType<typeof setTimeout>;
+    /** course of the running job (vacuum round, mop round) */
+    private lauf: Ablauf = ABLAUF_START;
+    private wechselTimer?: ReturnType<typeof setTimeout>;
     /** order of the job this page started (the robot's list is used after a reload) */
     private job: number[] = [];
     /** written, not yet reported back by the robot */
@@ -298,6 +308,7 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
             zsPlanFehler: '',
             zsVorbereitung: '',
             zsFort: -1,
+            zsWechsel: false,
             zsTick: 0,
             zsScale: 1,
         };
@@ -368,6 +379,9 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         if (this.stepTimer) {
             clearTimeout(this.stepTimer);
         }
+        if (this.wechselTimer) {
+            clearTimeout(this.wechselTimer);
+        }
         this.debounce.forEach(t => clearTimeout(t));
         super.componentWillUnmount();
     }
@@ -430,10 +444,28 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         const val = this.val;
         if (ids) {
             const running = laeuft(val(ids.aufgabe));
-            if (!running && this.state.zsFort !== -1 && !this.state.zsVorbereitung) {
+            const { a, schritt } = ablauf(this.lauf, running, modusVonCode(val(ids.modus)), Date.now());
+            this.lauf = a;
+            if (schritt === 'wechsel' && !this.state.zsWechsel) {
+                // "done" after the vacuum round: the mop round follows, the page keeps the job
+                this.setState({ zsWechsel: true });
+                if (this.wechselTimer) {
+                    clearTimeout(this.wechselTimer);
+                }
+                this.wechselTimer = setTimeout(this.onValues, WECHSEL_MAX_MS + 1000);
+            } else if (schritt === 'runde2') {
+                // mop round: the rooms are counted from the first one again
+                this.setState({ zsWechsel: false, zsFort: -1 });
+            } else if (schritt === 'ende') {
+                this.job = [];
+                if (this.state.zsWechsel) {
+                    this.setState({ zsWechsel: false });
+                }
+            }
+            if (!running && schritt !== 'wechsel' && this.state.zsFort !== -1 && !this.state.zsVorbereitung) {
                 this.job = [];
                 this.setState({ zsFort: -1 });
-            } else if (running) {
+            } else if (running && schritt !== 'runde2') {
                 const order = this.reihenfolge(ids);
                 const f = fortschritt(order, val(ids.raumJetzt), val(ids.zustand), this.state.zsFort);
                 if (f !== this.state.zsFort) {
@@ -755,11 +787,12 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         }
         const val = this.val;
         const e = this.einst(ids);
-        const running = laeuft(val(ids.aufgabe)) || !!this.state.zsVorbereitung;
+        const wechsel = this.state.zsWechsel;
+        const running = laeuft(val(ids.aufgabe)) || !!this.state.zsVorbereitung || wechsel;
         const paused = pausiert(val(ids.aufgabe), val(ids.zustand), val(ids.status));
         const order = this.reihenfolge(ids);
         const fort = this.state.zsFort;
-        const jetzt = running && fort >= 0 ? order[fort] : null;
+        const jetzt = running && !wechsel && fort >= 0 ? order[fort] : null;
         const name = (id: number): string => raeume.find(r => r.id === id)?.name ?? `Raum ${id}`;
         const wahl = this.state.zsWahl;
         const zustand = text(val(ids.zustand));
@@ -795,7 +828,12 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
                 </>
             ) : (
                 <>
-                    <b>{this.state.zsVorbereitung || zustand || 'Läuft'}</b>
+                    <b>
+                        {this.state.zsVorbereitung ||
+                            (wechsel ? 'Saugen fertig · gleich wird gewischt' : '') ||
+                            zustand ||
+                            'Läuft'}
+                    </b>
                     {order.length && jetzt !== null ? ` · ${name(jetzt)} · Raum ${fort + 1} von ${order.length}` : ''}
                 </>
             )
