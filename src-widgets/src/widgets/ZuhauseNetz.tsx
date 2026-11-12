@@ -37,6 +37,8 @@ import { StateWatcher } from '../lib/watch';
 const W = 1357;
 const H = 900;
 const DEFAULT_INSTANCE = 'unifi-map.0';
+/** the detail box closes after this time without touch, like the popups (POPUP_CLOSE_MS.idle) */
+const DETAIL_ZU_MS = 5000;
 const SHOWN = ['summary.state', 'summary.json', 'topology.json', 'info.connection'] as const;
 
 interface NetzRxData {
@@ -75,8 +77,11 @@ const BLUE = '#4aa3ff';
 
 /** UDR tower of the tile; the ring shows the state */
 function TurmIcon({ zustand, animate }: { zustand: KachelZustand; animate: boolean }): React.JSX.Element {
+    // running: the ring breathes slowly (Sven 12.11.), the other states move faster and in colour
     let ring: React.ReactNode = (
         <circle
+            className={animate && zustand === 'ok' ? 'zh-a-ring' : undefined}
+            style={animate && zustand === 'ok' ? { animationDuration: '4.5s' } : undefined}
             cx={12}
             cy={9}
             r={2.8}
@@ -208,6 +213,10 @@ const CSS = `
 .zn-map{flex:1;min-height:0;width:100%}
 .zn-map text{font-family:${fonts.text}}
 .zn-map .zn-k{cursor:pointer;outline:none}
+@keyframes zn-flow{to{stroke-dashoffset:-26}}
+.zh-a-flow{animation:zn-flow 2.2s linear infinite}
+.zh-still .zh-a-flow{opacity:0}
+@media (prefers-reduced-motion:reduce){.zh-a-flow{opacity:0}}
 .zn-leer{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-2,#a3a19a);font-size:16px}
 .zn-det{position:absolute;right:14px;top:44px;width:300px;background:#232327;border:1px solid var(--border,#36363b);border-radius:16px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .zn-det h2{margin:0;font-size:20px;font-weight:600;padding-right:36px}
@@ -262,6 +271,7 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
     private alive = true;
     private letzteAktion = Date.now();
     private wisch: { x: number; y: number; t: number } | null = null;
+    private detailTimer?: ReturnType<typeof setTimeout>;
 
     constructor(props: VisRxWidgetProps) {
         super(props);
@@ -365,6 +375,9 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
 
     componentWillUnmount(): void {
         this.alive = false;
+        if (this.detailTimer) {
+            clearTimeout(this.detailTimer);
+        }
         this.watcher?.stop();
         this.znResize?.disconnect();
         this.timers.forEach(t => clearInterval(t));
@@ -430,7 +443,24 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
     private beruehrt = (e: React.PointerEvent): void => {
         this.letzteAktion = Date.now();
         this.wisch = { x: e.clientX, y: e.clientY, t: Date.now() };
+        // every touch restarts the time of an open detail box
+        if (this.state.znAuswahl) {
+            this.detailZeit();
+        }
     };
+
+    /** The detail box closes 5 s after the last touch, like the popups of the start page */
+    private detailZeit(): void {
+        if (this.detailTimer) {
+            clearTimeout(this.detailTimer);
+        }
+        this.detailTimer = setTimeout(() => {
+            this.detailTimer = undefined;
+            if (this.alive) {
+                this.setState({ znAuswahl: '' });
+            }
+        }, DETAIL_ZU_MS);
+    }
 
     /** swipe to the right (finger moves left → right) goes back */
     private losgelassen = (e: React.PointerEvent): void => {
@@ -456,7 +486,13 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
         }
     }
 
-    private waehle = (id: string): void => this.setState({ znAuswahl: this.state.znAuswahl === id ? '' : id });
+    private waehle = (id: string): void => {
+        const neu = this.state.znAuswahl === id ? '' : id;
+        this.setState({ znAuswahl: neu });
+        if (neu) {
+            this.detailZeit();
+        }
+    };
 
     // ---------------------------------------------------------------- render
 
@@ -625,7 +661,7 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
                             </div>
                         </div>
                         {topo && topo.nodes.length ? (
-                            this.renderKarte(topo)
+                            this.renderKarte(topo, motionAllowed(levelClass) && d.animation !== 'keine')
                         ) : (
                             <div className="zn-leer">Noch keine Daten vom Adapter</div>
                         )}
@@ -636,11 +672,12 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
         );
     }
 
-    private renderKarte(topo: NetzTopologie): React.JSX.Element {
+    private renderKarte(topo: NetzTopologie, fluss: boolean): React.JSX.Element {
         const { pos, breite, hoehe } = anordnen(topo);
         const byId = new Map(topo.nodes.map(n => [n.id, n]));
         const S = KARTE;
         const linien: React.ReactNode[] = [];
+        const punkte: React.ReactNode[] = [];
         const schilder: React.ReactNode[] = [];
         topo.edges.forEach((e, i) => {
             const a = pos[e.from];
@@ -673,10 +710,11 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
             const y1 = a.y + S.hoehe / 2;
             const y2 = b.y - S.hoehe / 2;
             const my = (y1 + y2) / 2;
+            const weg = `M${a.x} ${y1} C${a.x} ${my + 6} ${b.x} ${my - 6} ${b.x} ${y2}`;
             linien.push(
                 <path
                     key={`l${i}`}
-                    d={`M${a.x} ${y1} C${a.x} ${my + 6} ${b.x} ${my - 6} ${b.x} ${y2}`}
+                    d={weg}
                     stroke={farbe}
                     strokeWidth={2.4}
                     fill="none"
@@ -684,6 +722,31 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
                     strokeLinecap={cap}
                 />,
             );
+            // dots run from the console outwards on every working link, in the colour of the link
+            if (fluss && kind.state !== 'offline' && kind.state !== 'consequence') {
+                const punktFarbe =
+                    farbe === '#8c8a83'
+                        ? '#cfccc3'
+                        : farbe === '#e8913a'
+                          ? '#f0a95c'
+                          : farbe === BLUE
+                            ? '#8cc4ff'
+                            : farbe;
+                punkte.push(
+                    <path
+                        key={`p${i}`}
+                        className="zh-a-flow"
+                        d={weg}
+                        stroke={punktFarbe}
+                        strokeWidth={4.2}
+                        fill="none"
+                        strokeDasharray="0 26"
+                        strokeLinecap="round"
+                        opacity={0.85}
+                        style={{ animationDelay: `${-(i % 5) * 0.4}s` }}
+                    />,
+                );
+            }
             const text = kantenText(e, kind);
             if (text) {
                 const gelb = e.degraded && kind.state !== 'offline' && kind.state !== 'consequence';
@@ -834,6 +897,7 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
                 onClick={e => e.target === e.currentTarget && this.setState({ znAuswahl: '' })}
             >
                 {linien}
+                {punkte}
                 {schilder}
                 {karten}
             </svg>
