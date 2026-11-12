@@ -238,5 +238,11 @@
     "circle_a_running": "running (state) A",
     "circle_b_running": "running (state) B",
     "circle_c_running": "running (state) C",
-    "circle_running_tip": "true = command running, e.g. blink.0.networks.<id>.armPending"
+    "circle_running_tip": "true = command running, e.g. blink.0.networks.<id>.armPending",
+    "netz_label": "Network",
+    "netz_tile": "Tile",
+    "netz_page": "Page",
+    "netz_instance": "Instance unifi-map",
+    "netz_instance_tip": "e.g. unifi-map.0",
+    "netz_name": "Name"
 }

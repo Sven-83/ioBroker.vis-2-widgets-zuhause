@@ -26,6 +26,7 @@ export default {
                 './ZuhauseSauger': './src/widgets/ZuhauseSauger',
                 './ZuhauseEnergie': './src/widgets/ZuhauseEnergie',
                 './ZuhauseHaube': './src/widgets/ZuhauseHaube',
+                './ZuhauseNetz': './src/widgets/ZuhauseNetz',
                 './translations': './src/translations',
             },
             remotes: {},

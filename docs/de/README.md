@@ -212,6 +212,15 @@ Die Seitenleiste neben dem Grundriss. Im Feld „Grundriss-Widget“ den Plan w�
 | Rollo | „a offen · b teilweise · c zu“, Alle hoch / Alle runter, Schnellwahl je Rollo |
 | Sicherheit | Alarm scharf/unscharf (Aus mit PIN, Hinweis bei offenen Fenstern), Übersicht, offene Fenster/Türen, Wartungsliste |
 
+## Netzwerk (UniFi)
+
+Für den Adapter `unifi-map`. Wie Energie in zwei Darstellungen:
+
+- **Kachel** für die Startseite: skizzierte UDR. Grün = alles läuft; gelber Punkt = ein Uplink ist langsamer als gewohnt; „U“ = Firmware-Update verfügbar; blau = Update läuft; rot = Gerät ausgefallen; grau mit Symbol = keine aktuellen Daten. Im Feld „Tippen öffnet View“ die Netzwerk-Seite wählen.
+- **Seite** (1357 × 900): Karte von der Konsole abwärts mit Port und Tempo an jeder Verbindung, Kabel grau, Mesh blau gestrichelt, Abschnitt ohne UniFi (z. B. Powerline) orange gepunktet. Antippen eines Geräts zeigt Details. Zurück über den Pfeil, Wischen nach rechts oder automatisch nach der eingestellten Zeit (Standard 2 Minuten).
+
+Das Widget liest nur; Firmware-Updates folgen später.
+
 ## Fußbodenheizung (Klima)
 
 Kachel mit Ist-Temperatur groß, Soll klein und Status. Solange der Stellantrieb offen ist, wird sie orange und Wärme steigt auf.
