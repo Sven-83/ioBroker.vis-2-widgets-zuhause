@@ -154,7 +154,8 @@ describe('netz', () => {
         });
         it('names cards', () => {
             assert.equal(kartenName(knoten('x', '', { name: 'Switch Flur', role: 'switch' })), 'Flur');
-            assert.equal(kartenName(knoten('x', '', { virtual: true })), 'Nicht UniFi');
+            assert.equal(kartenName(knoten('x', '', { virtual: true, name: '' })), 'Nicht UniFi');
+            assert.equal(kartenName(knoten('x', '', { virtual: true, name: 'Powerline' })), 'Powerline');
         });
         it('writes the uptime', () => {
             assert.equal(laufzeit(13 * 86400 + 16 * 3600), '13 T 16 h');

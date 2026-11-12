@@ -248,7 +248,8 @@ export function kantenText(e: NetzKante, kind: NetzKnoten | undefined): string {
 /** Name on the card: switches without "Switch", the second line says it */
 export function kartenName(n: NetzKnoten): string {
     if (n.virtual) {
-        return 'Nicht UniFi';
+        // own name from the adapter settings (e.g. "Powerline"), else a neutral one
+        return n.name || 'Nicht UniFi';
     }
     return n.role === 'switch' ? n.name.replace(/^Switch\s+/i, '') || n.name : n.name;
 }

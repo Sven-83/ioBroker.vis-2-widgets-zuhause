@@ -620,7 +620,7 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
                                 </span>
                                 <span>
                                     <i style={{ borderTop: '2px dotted #e8913a' }} />
-                                    Nicht UniFi
+                                    {topo?.nodes.find(n => n.virtual && n.name)?.name || 'Nicht UniFi'}
                                 </span>
                             </div>
                         </div>
@@ -650,7 +650,8 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
             if (!a || !b || !kind) {
                 return;
             }
-            const ueberFremd = kind.virtual || !!eltern?.virtual;
+            // the cable into the section is a normal cable; only the way through it (e.g. powerline) is orange
+            const ueberFremd = !!eltern?.virtual;
             let farbe = '#8c8a83';
             let dash = '';
             let cap: 'butt' | 'round' = 'butt';
@@ -697,14 +698,14 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
                             height={18}
                             rx={9}
                             fill="#2b2b2f"
-                            stroke={gelb ? YELLOW : kind.virtual ? '#6b4a26' : '#3d3d42'}
+                            stroke={gelb ? YELLOW : '#3d3d42'}
                         />
                         <text
                             x={b.x}
                             y={cy + 4}
                             textAnchor="middle"
                             fontSize={11}
-                            fill={gelb ? YELLOW : kind.virtual ? '#e8913a' : '#a3a19a'}
+                            fill={gelb ? YELLOW : '#a3a19a'}
                         >
                             {text}
                         </text>
@@ -721,7 +722,13 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
             const x = p.x - S.breite / 2;
             const y = p.y - S.hoehe / 2;
             const kante = topo.edges.find(e => e.to === n.id);
-            let sub = n.virtual ? 'z. B. Powerline' : n.role === 'switch' ? 'Switch' : n.model;
+            let sub = n.virtual
+                ? n.name
+                    ? 'kein UniFi-Gerät'
+                    : 'z. B. Powerline'
+                : n.role === 'switch'
+                  ? 'Switch'
+                  : n.model;
             if (n.state === 'degraded' && kante && kante.type !== 'wireless') {
                 sub = `${tempo(kante.speed)} – langsamer als gewohnt`;
             } else if (n.state === 'offline') {
@@ -873,7 +880,9 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
         }
         const ursache = n.state === 'consequence' && n.causeId ? byId.get(n.causeId) : undefined;
         const rolle = n.virtual
-            ? 'z. B. Powerline'
+            ? n.name
+                ? 'kein UniFi-Gerät'
+                : 'z. B. Powerline'
             : n.role === 'switch'
               ? 'Switch'
               : n.role === 'gateway'
@@ -893,7 +902,7 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
                 >
                     ✕
                 </button>
-                <h2>{n.virtual ? 'Nicht UniFi' : n.name}</h2>
+                <h2>{n.virtual ? kartenName(n) : n.name}</h2>
                 <div className="zn-sub">{rolle}</div>
                 <dl>
                     {zeilen.map(([k, wert]) => (
