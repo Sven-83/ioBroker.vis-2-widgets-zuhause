@@ -977,9 +977,7 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
                     ))}
                 </dl>
                 {n.updatable ? (
-                    <div className="zn-hin gelb">
-                        Ein Firmware-Update ist verfügbar. Starten von hier folgt in einer späteren Version.
-                    </div>
+                    <div className="zn-hin gelb">Ein Firmware-Update ist verfügbar. Starten in der UniFi-App.</div>
                 ) : ursache ? (
                     <div className="zn-hin rot">{`Nicht erreichbar, weil ${ursache.name} ausgefallen ist.`}</div>
                 ) : null}
