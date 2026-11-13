@@ -13,7 +13,7 @@ import { fonts, v } from '../lib/theme';
 import { Icon } from './Icon';
 
 /** Timer that closes the popup; restart with the delay of the last input */
-function useAutoClose(onClose: () => void): (ms: number) => void {
+export function useAutoClose(onClose: () => void): (ms: number) => void {
     const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     // the parent passes a new function on every render (new values arrive while the popup is open);
     // a ref keeps the timer running instead of restarting it with the idle time
@@ -46,7 +46,7 @@ function useAutoClose(onClose: () => void): (ms: number) => void {
 }
 
 /** Writes only after the slider rested for a moment, not every intermediate value */
-function useDebounced(fn: (n: number) => void, ms = 250): (n: number) => void {
+export function useDebounced(fn: (n: number) => void, ms = 250): (n: number) => void {
     const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const pending = React.useRef<number | undefined>(undefined);
     const latest = React.useRef(fn);
@@ -80,7 +80,7 @@ function useDebounced(fn: (n: number) => void, ms = 250): (n: number) => void {
     );
 }
 
-function Frame({
+export function Frame({
     kind,
     title,
     label,

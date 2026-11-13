@@ -59,6 +59,8 @@ export interface TileProps {
     hideEmptyLabel?: boolean;
     /** drawn on top of the tile, e.g. a timer ring */
     overlay?: React.ReactNode;
+    /** own surface instead of the look (background, border, colour), e.g. the star tile */
+    surface?: React.CSSProperties;
     scale: number;
     title?: string;
     onPointerDown?: (e: React.PointerEvent) => void;
@@ -169,6 +171,7 @@ export function Tile(p: TileProps): React.JSX.Element {
                 transformOrigin: 'top left',
                 opacity: p.stale ? 0.45 : 1,
                 ...look,
+                ...p.surface,
                 ...(p.unconfirmed ? { border: `2px solid ${v('warn-bd')}` } : null),
                 ...(p.alarm ? { background: '#5a1316', border: `1.5px solid ${v('warn-bd')}`, color: '#fff' } : null),
             }}

@@ -61,7 +61,8 @@
                     "ZuhauseSauger",
                     "ZuhauseEnergie",
                     "ZuhauseHaube",
-                    "ZuhauseNetz"
+                    "ZuhauseNetz",
+                    "ZuhauseSterne"
                 ]
             }
         },

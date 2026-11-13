@@ -27,6 +27,7 @@ export default {
                 './ZuhauseEnergie': './src/widgets/ZuhauseEnergie',
                 './ZuhauseHaube': './src/widgets/ZuhauseHaube',
                 './ZuhauseNetz': './src/widgets/ZuhauseNetz',
+                './ZuhauseSterne': './src/widgets/ZuhauseSterne',
                 './translations': './src/translations',
             },
             remotes: {},
