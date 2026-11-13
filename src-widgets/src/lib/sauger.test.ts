@@ -22,6 +22,8 @@ import {
     STANDARD,
     vorbereiten,
     WECHSEL_MAX_MS,
+    RAUM_HALTE_MS,
+    type Kandidat,
     wasserStufe,
 } from './sauger';
 
@@ -173,13 +175,40 @@ describe('sauger', () => {
         assert.equal(imRaum('Mopp-Reinigung'), false);
         assert.equal(imRaum('Zurück zum Aufladen'), false);
         const order = [6, 7, 3];
-        assert.equal(fortschritt(order, 6, 'Reinigung', -1), 0);
-        assert.equal(fortschritt(order, 7, 'Reinigung', 0), 1);
+        const f = (raum: number, zustand: string, bisher: number, k: Kandidat | null = null, t = 0): number =>
+            fortschritt(order, raum, zustand, bisher, k, t).fort;
+        // first room at once
+        assert.equal(f(6, 'Reinigung', -1), 0);
+        // next room only after the hold time
+        const k = fortschritt(order, 7, 'Reinigung', 0, null, 1000).kandidat;
+        assert.deepEqual(k, { idx: 1, seit: 1000 });
+        assert.equal(f(7, 'Reinigung', 0, k, 1000 + RAUM_HALTE_MS - 1), 0);
+        assert.equal(f(7, 'Reinigung', 0, k, 1000 + RAUM_HALTE_MS), 1);
         // through the hall back: stays
-        assert.equal(fortschritt(order, 6, 'Reinigung', 1), 1);
+        assert.equal(f(6, 'Reinigung', 1), 1);
         // base room while fetching mops: stays
-        assert.equal(fortschritt(order, 5, 'Mopp-Reinigung', 1), 1);
-        assert.equal(fortschritt(order, 3, 'Zurück zum Aufladen', 1), 1);
+        assert.equal(f(5, 'Mopp-Reinigung', 1), 1);
+        assert.equal(f(3, 'Zurück zum Aufladen', 1), 1);
+    });
+
+    it('ignores a short visit of the next room while mopping (2026-11-13)', () => {
+        const order = [7, 2];
+        const t0 = 0;
+        // 08:43 kitchen for under a minute, 08:44 the hall again
+        let r = fortschritt(order, 2, 'Wischen', 0, null, t0);
+        assert.equal(r.fort, 0);
+        r = fortschritt(order, 7, 'Wischen', r.fort, r.kandidat, t0 + 47_000);
+        assert.deepEqual(r, { fort: 0, kandidat: null });
+        // to the base and back: the candidate stays as it is
+        r = fortschritt(order, 2, 'Wischen', 0, null, t0 + 60_000);
+        const k = r.kandidat;
+        r = fortschritt(order, 4, 'Wischen', 0, k, t0 + 90_000);
+        assert.deepEqual(r.kandidat, k);
+        r = fortschritt(order, 5, 'Mopp-Reinigung', 0, k, t0 + 100_000);
+        assert.deepEqual(r.kandidat, k);
+        // kitchen long enough
+        r = fortschritt(order, 2, 'Wischen', 0, k, t0 + 60_000 + RAUM_HALTE_MS);
+        assert.deepEqual(r, { fort: 1, kandidat: null });
     });
 
     it('parses the room list and labels', () => {

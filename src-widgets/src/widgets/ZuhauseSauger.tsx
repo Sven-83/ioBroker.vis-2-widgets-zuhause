@@ -22,6 +22,7 @@ import {
     WASSER_MAX,
     WASSER_MIN,
     WASSER_STUFEN,
+    RAUM_HALTE_MS,
     WECHSEL_MAX_MS,
     ablauf,
     aktiveRaeume,
@@ -46,6 +47,7 @@ import {
     type Ablauf,
     type Ausstehend,
     type Einstellung,
+    type Kandidat,
     type Modus,
     type SaugerIds,
     type SaugerRaum,
@@ -290,6 +292,9 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
     /** course of the running job (vacuum round, mop round) */
     private lauf: Ablauf = ABLAUF_START;
     private wechselTimer?: ReturnType<typeof setTimeout>;
+    /** next room the robot is in, counted once it stays there long enough */
+    private raumKandidat: Kandidat | null = null;
+    private raumTimer?: ReturnType<typeof setTimeout>;
     /** order of the job this page started (the robot's list is used after a reload) */
     private job: number[] = [];
     /** written, not yet reported back by the robot */
@@ -382,6 +387,9 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         if (this.wechselTimer) {
             clearTimeout(this.wechselTimer);
         }
+        if (this.raumTimer) {
+            clearTimeout(this.raumTimer);
+        }
         this.debounce.forEach(t => clearTimeout(t));
         super.componentWillUnmount();
     }
@@ -462,19 +470,46 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
                     this.setState({ zsWechsel: false });
                 }
             }
+            if (schritt === 'runde2' || schritt === 'ende') {
+                this.setKandidat(null);
+            }
             if (!running && schritt !== 'wechsel' && this.state.zsFort !== -1 && !this.state.zsVorbereitung) {
                 this.job = [];
+                this.setKandidat(null);
                 this.setState({ zsFort: -1 });
             } else if (running && schritt !== 'runde2') {
                 const order = this.reihenfolge(ids);
-                const f = fortschritt(order, val(ids.raumJetzt), val(ids.zustand), this.state.zsFort);
-                if (f !== this.state.zsFort) {
-                    this.setState({ zsFort: f });
+                const { fort, kandidat } = fortschritt(
+                    order,
+                    val(ids.raumJetzt),
+                    val(ids.zustand),
+                    this.state.zsFort,
+                    this.raumKandidat,
+                    Date.now(),
+                );
+                this.setKandidat(kandidat);
+                if (fort !== this.state.zsFort) {
+                    this.setState({ zsFort: fort });
                 }
             }
         }
         this.setState(s => ({ zsTick: s.zsTick + 1 }));
     };
+
+    /** a new candidate room is checked again once its hold time is over (no new values may come) */
+    private setKandidat(k: Kandidat | null): void {
+        if (k === this.raumKandidat) {
+            return;
+        }
+        this.raumKandidat = k;
+        if (this.raumTimer) {
+            clearTimeout(this.raumTimer);
+            this.raumTimer = undefined;
+        }
+        if (k) {
+            this.raumTimer = setTimeout(this.onValues, Math.max(0, k.seit + RAUM_HALTE_MS - Date.now()) + 500);
+        }
+    }
 
     private val = (id: string): unknown => this.watcher?.val(id);
 

@@ -290,15 +290,44 @@ export function imRaum(zustand: unknown): boolean {
 }
 
 /**
+ * How long the robot must stay in the next room before the progress moves on. While mopping it drives
+ * briefly into the next room and back (seen 2026-11-13: kitchen for under a minute, then the hall again).
+ */
+export const RAUM_HALTE_MS = 2 * 60_000;
+
+/** Next room of the order the robot is in, not yet confirmed */
+export interface Kandidat {
+    idx: number;
+    seit: number;
+}
+
+/**
  * Index of the current room in the order. The position based room of the adapter also reports the hall
  * on the way and the base room while fetching mops, so only rooms of the job count and never backwards.
+ * The first room counts at once, every further one only after RAUM_HALTE_MS in it; going back into an
+ * earlier room of the job before that drops the candidate.
  */
-export function fortschritt(reihenfolge: number[], raumJetzt: unknown, zustand: unknown, bisher: number): number {
+export function fortschritt(
+    reihenfolge: number[],
+    raumJetzt: unknown,
+    zustand: unknown,
+    bisher: number,
+    kandidat: Kandidat | null,
+    jetzt: number,
+): { fort: number; kandidat: Kandidat | null } {
     const i = reihenfolge.indexOf(Number(raumJetzt));
-    if (i >= 0 && imRaum(zustand) && i > bisher) {
-        return i;
+    if (i < 0 || !imRaum(zustand)) {
+        // on the way, at the base, in a room outside the job: nothing new
+        return { fort: bisher, kandidat };
     }
-    return bisher;
+    if (i <= bisher) {
+        return { fort: bisher, kandidat: null };
+    }
+    if (bisher < 0) {
+        return { fort: i, kandidat: null };
+    }
+    const k = kandidat?.idx === i ? kandidat : { idx: i, seit: jetzt };
+    return jetzt - k.seit >= RAUM_HALTE_MS ? { fort: i, kandidat: null } : { fort: bisher, kandidat: k };
 }
 
 /** Longest pause between the vacuum and the mop round (fetch and wash mops) before the job counts as done */
