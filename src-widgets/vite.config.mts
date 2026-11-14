@@ -28,6 +28,8 @@ export default {
                 './ZuhauseHaube': './src/widgets/ZuhauseHaube',
                 './ZuhauseNetz': './src/widgets/ZuhauseNetz',
                 './ZuhauseSterne': './src/widgets/ZuhauseSterne',
+                './ZuhauseFahrzeuge': './src/widgets/ZuhauseFahrzeuge',
+                './ZuhauseAuto': './src/widgets/ZuhauseAuto',
                 './translations': './src/translations',
             },
             remotes: {},

@@ -248,5 +248,20 @@
     "netz_page": "Page",
     "netz_instance": "Instance unifi-map",
     "netz_instance_tip": "e.g. unifi-map.0",
-    "netz_name": "Name"
+    "netz_name": "Name",
+    "fahrzeuge_label": "Vehicles",
+    "fahrzeuge_instance": "mobility instance",
+    "fahrzeuge_instance_tip": "Adapter ioBroker.mobility, e.g. mobility.0",
+    "fahrzeuge_car1": "Vehicle left (slot, 0 = none)",
+    "fahrzeuge_view1": "Detail view vehicle left",
+    "fahrzeuge_car2": "Vehicle middle (slot, 0 = none)",
+    "fahrzeuge_view2": "Detail view vehicle middle",
+    "fahrzeuge_wb1": "Wallbox left (slot, 0 = none)",
+    "fahrzeuge_wb2": "Wallbox right (slot, 0 = none)",
+    "fahrzeuge_camper": "Show camper (planned)",
+    "auto_label": "Car (detail page)",
+    "auto_car": "Vehicle (slot in the adapter)",
+    "auto_station1": "Station 1 (slot, 0 = none)",
+    "auto_station2": "Station 2 (slot, 0 = none)",
+    "auto_back": "Back to view"
 }
