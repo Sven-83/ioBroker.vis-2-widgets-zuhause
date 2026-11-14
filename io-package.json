@@ -62,7 +62,9 @@
                     "ZuhauseEnergie",
                     "ZuhauseHaube",
                     "ZuhauseNetz",
-                    "ZuhauseSterne"
+                    "ZuhauseSterne",
+                    "ZuhauseFahrzeuge",
+                    "ZuhauseAuto"
                 ]
             }
         },
