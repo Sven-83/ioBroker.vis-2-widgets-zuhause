@@ -335,6 +335,8 @@ interface AutoRxData {
     wallbox1: number;
     wallbox2: number;
     zurueck: string;
+    /** minutes without touch until the page returns by itself (0 = never) */
+    autoZurueck: number;
     animation: string;
     animationStufe: string;
     nachtAus: boolean;
@@ -403,6 +405,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
     private zaResize?: ResizeObserver;
     private timers: ReturnType<typeof setInterval>[] = [];
     private alive = true;
+    private lastTouch = Date.now();
 
     constructor(props: VisRxWidgetProps) {
         super(props);
@@ -433,6 +436,14 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                         { name: 'wallbox1', type: 'number', label: 'fahrzeuge_wb1', default: 1, min: 0, max: 9 },
                         { name: 'wallbox2', type: 'number', label: 'fahrzeuge_wb2', default: 2, min: 0, max: 9 },
                         { name: 'zurueck', type: 'views', label: 'auto_back' },
+                        {
+                            name: 'autoZurueck',
+                            type: 'number',
+                            label: 'energie_auto_back',
+                            default: 2,
+                            min: 0,
+                            max: 60,
+                        },
                     ],
                 },
                 { name: 'motion', label: 'group_animation', fields: MOTION_FIELDS },
@@ -469,6 +480,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
         this.measure();
         // the "now" marker of the hour bars and the night mode
         this.timers.push(setInterval(() => this.alive && this.setState({ zaNow: Date.now() }), 60_000));
+        this.timers.push(setInterval(() => this.alive && this.autoBack(), 5_000));
         requestAnimationFrame(() => this.alive && this.setState({ zaShown: true }));
     }
 
@@ -544,6 +556,29 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
         ];
         void this.watcher?.watch(ids);
     }
+
+    /** back to the start page after some minutes without touch (like Energie), only while the page is on screen */
+    private autoBack(): void {
+        const d = this.state.rxData;
+        // widgets created before this field: 2 minutes
+        const raw: unknown = d.autoZurueck;
+        const min = raw === undefined || raw === null || raw === '' ? 2 : Number(raw);
+        const el = this.box.current;
+        const visible = !!el && el.getClientRects().length > 0 && (typeof document === 'undefined' || !document.hidden);
+        if (!d.zurueck || this.props.editMode || !(min > 0) || !visible) {
+            // hidden pages start counting again when they come back
+            this.lastTouch = Date.now();
+            return;
+        }
+        if (Date.now() - this.lastTouch >= min * 60_000) {
+            this.lastTouch = Date.now();
+            this.back();
+        }
+    }
+
+    private touched = (): void => {
+        this.lastTouch = Date.now();
+    };
 
     private back = (): void => {
         const view = this.state.rxData.zurueck;
@@ -1726,6 +1761,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
         return (
             <div
                 ref={this.box}
+                onPointerDownCapture={this.touched}
                 style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}
             >
                 <div
