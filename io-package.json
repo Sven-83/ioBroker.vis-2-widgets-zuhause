@@ -64,7 +64,8 @@
                     "ZuhauseNetz",
                     "ZuhauseSterne",
                     "ZuhauseFahrzeuge",
-                    "ZuhauseAuto"
+                    "ZuhauseAuto",
+                    "ZuhauseSystem"
                 ]
             }
         },

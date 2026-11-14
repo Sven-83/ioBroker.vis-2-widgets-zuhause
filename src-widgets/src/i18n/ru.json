@@ -263,5 +263,9 @@
     "auto_car": "Vehicle (slot in the adapter)",
     "auto_station1": "Station 1 (slot, 0 = none)",
     "auto_station2": "Station 2 (slot, 0 = none)",
-    "auto_back": "Back to view"
+    "auto_back": "Back to view",
+    "system_label": "ioBroker status",
+    "system_base": "Watcher data points",
+    "system_base_tip": "Folder of the watcher script, e.g. 0_userdata.0.system.iobrokerStatus",
+    "system_name": "Name on the tile"
 }

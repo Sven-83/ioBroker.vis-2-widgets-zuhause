@@ -263,5 +263,9 @@
     "auto_car": "Fahrzeug (Platz im Adapter)",
     "auto_station1": "Tankstelle 1 (Platz, 0 = keine)",
     "auto_station2": "Tankstelle 2 (Platz, 0 = keine)",
-    "auto_back": "Zurück zu Seite"
+    "auto_back": "Zurück zu Seite",
+    "system_label": "ioBroker-Status",
+    "system_base": "Datenpunkte des Wächters",
+    "system_base_tip": "Ordner des Wächter-Skripts, z. B. 0_userdata.0.system.iobrokerStatus",
+    "system_name": "Name auf der Kachel"
 }

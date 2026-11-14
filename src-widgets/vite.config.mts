@@ -30,6 +30,7 @@ export default {
                 './ZuhauseSterne': './src/widgets/ZuhauseSterne',
                 './ZuhauseFahrzeuge': './src/widgets/ZuhauseFahrzeuge',
                 './ZuhauseAuto': './src/widgets/ZuhauseAuto',
+                './ZuhauseSystem': './src/widgets/ZuhauseSystem',
                 './translations': './src/translations',
             },
             remotes: {},
