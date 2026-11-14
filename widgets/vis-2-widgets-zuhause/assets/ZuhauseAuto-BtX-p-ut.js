@@ -27,7 +27,7 @@ import{a as e,i as t,l as n,o as r}from"./mf-662gMFuq.js";import{C as i,S as a,b
 .za-ring .pz{font-family:${T.numbers};font-weight:600;font-size:36px;line-height:1}
 .za-ring .pz small{font-size:18px}
 .za-ring .sub{font-size:11px;color:var(--text-2,#a3a19a);margin-top:2px}
-.za-tropfen{position:absolute;left:64px;top:-6px;width:14px;height:18px;opacity:0;animation:za-tropf 3.2s ease-in 1.6s infinite}
+.za-ring>svg.za-tropfen{transform:none;position:absolute;left:64px;top:-6px;width:14px;height:18px;opacity:0;animation:za-tropf 3.2s ease-in 1.6s infinite}
 @keyframes za-tropf{0%{transform:translateY(0);opacity:0}10%{opacity:1}40%{transform:translateY(34px);opacity:0}100%{opacity:0}}
 .za-werte{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
 .za-werte>div{font-size:10.5px;color:var(--text-2,#a3a19a);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
