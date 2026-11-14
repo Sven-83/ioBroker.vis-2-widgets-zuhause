@@ -10,6 +10,7 @@ import {
     parseEasee,
     parseFordWeeks,
     plugText,
+    yearLabel,
     boldParts,
     closedSpans,
     dropWanted,
@@ -202,9 +203,9 @@ describe('autoseite', () => {
         );
         it('charged: home from the wallbox, away only where Ford recorded', () =>
             assert.deepEqual(chargedPeriods(easee, ford, 8), [
-                { period: '2026-W44', label: '44', home: 37, away: null },
-                { period: '2026-W45', label: '45', home: 79.2, away: null },
-                { period: '2026-W46', label: '46', home: 54.3, away: 70 - 54.3 },
+                { period: '2026-W44', label: '44', home: 37, away: null, cost: 13.32 },
+                { period: '2026-W45', label: '45', home: 79.2, away: null, cost: 28.5 },
+                { period: '2026-W46', label: '46', home: 54.3, away: 70 - 54.3, cost: 19.56 },
             ]));
         it('small differences are charging losses', () => {
             const f = parseFordWeeks(
@@ -217,6 +218,12 @@ describe('autoseite', () => {
             assert.equal(homePrice(1, 0), null);
         });
         it('month label', () => assert.equal(monthLabel('2026-11'), 'Nov'));
+        it('year label of the wallbox line', () => {
+            const now = new Date(2026, 10, 14).getTime();
+            assert.equal(yearLabel(now, new Date(2026, 9, 1, 18).getTime()), 'Wallbox 2026 seit 1.10.');
+            assert.equal(yearLabel(now, new Date(2025, 9, 1).getTime()), 'Wallbox 2026');
+            assert.equal(yearLabel(now, null), 'Wallbox 2026');
+        });
         it('period labels', () => {
             assert.equal(periodLabel('2026-W46'), '46');
             assert.equal(periodLabel('2026-11-14'), 'Sa');

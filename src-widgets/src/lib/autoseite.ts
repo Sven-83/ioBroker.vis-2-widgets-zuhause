@@ -393,6 +393,8 @@ export interface ChargedPeriod {
     home: number;
     /** null = Ford had no data for that period yet */
     away: number | null;
+    /** costs of the wallbox sessions (at home) */
+    cost: number;
 }
 
 /** Short label of a period key: "2026-W46" → "46", "2026-11-14" → "Sa", "2026-11" → "Nov" */
@@ -425,9 +427,26 @@ export function chargedPeriods(easee: EaseePeriod[], ford: FordWeek[], count: nu
             period: w.period,
             label: periodLabel(w.period),
             home: w.kwh,
+            cost: w.cost,
             away: away !== null && away < 3 ? 0 : away,
         };
     });
+}
+
+/**
+ * Head of the wallbox line: "Wallbox 2026" or "Wallbox 2026 seit 1.10." when the sessions start later in the year.
+ *
+ * @param now - Current time
+ * @param oldest - Start of the oldest session counted (easee.history.oldestSession)
+ */
+export function yearLabel(now: number, oldest: unknown): string {
+    const year = new Date(now).getFullYear();
+    const o = num(oldest);
+    if (o !== null && o > new Date(year, 0, 1).getTime() && new Date(o).getFullYear() === year) {
+        const d = new Date(o);
+        return `Wallbox ${year} seit ${d.getDate()}.${d.getMonth() + 1}.`;
+    }
+    return `Wallbox ${year}`;
 }
 
 /** Price per kWh at home from the costs of the year (the price set in the adapter) */

@@ -27,6 +27,7 @@ import {
     parseEasee,
     parseFordWeeks,
     plugText,
+    yearLabel,
     closedSpans,
     dropWanted,
     combineProfiles,
@@ -155,6 +156,7 @@ const EASEE_DP = [
     'history.yearCost',
     'history.yearEnergy',
     'history.lastSession',
+    'history.oldestSession',
 ] as const;
 type EaseeDp = (typeof EASEE_DP)[number];
 
@@ -303,9 +305,18 @@ const CSS = `
 .za-monate .m>div{width:100%;border-radius:4px 4px 0 0;background:#4c9a63;transition:height 1s cubic-bezier(.2,.8,.2,1)}
 .za-monate .m.jetzt>div{background:repeating-linear-gradient(135deg,${EV} 0 6px,#4c9a63 6px 12px)}
 .za-monate .m label{position:absolute;bottom:-15px;left:0;right:0;text-align:center;font-size:9.5px;color:var(--text-2,#a3a19a)}
-.za-monate .m span{position:absolute;top:-16px;left:-4px;right:-4px;text-align:center;font-size:9.5px;color:var(--text-2,#a3a19a);white-space:nowrap}
+.za-monate .m>span.wert{position:absolute;top:-16px;left:-4px;right:-4px;text-align:center;font-size:9.5px;color:var(--text-2,#a3a19a);white-space:nowrap}
+.za-monate .m.gewaehlt>span.wert{visibility:hidden}
 .za-zaehler{display:flex;align-items:center;gap:8px;border-top:1px solid var(--border,#36363b);margin-top:4px;padding-top:7px;font-size:11px;color:var(--text-2,#a3a19a)}
 .za-zaehler b{margin-left:auto;color:var(--text,#ece9e1);font-family:${fonts.numbers};font-weight:600;font-size:13px;white-space:nowrap}
+.za-balken .w,.za-monate .m{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.za-balken .w.gewaehlt>div,.za-monate .m.gewaehlt>div{filter:brightness(1.25);box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.za-bubble{position:absolute;left:50%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 9px;border-radius:9px;background:#3b3b42;border:1px solid #5a5a62;color:var(--text,#ece9e1);font-size:11px;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.45);pointer-events:none;animation:za-auf .18s ease-out}
+.za-bubble>span:first-child{font-size:10px;color:var(--text-2,#a3a19a)}
+.za-bubble>span:nth-child(2){font-family:${fonts.numbers};font-weight:600;font-size:14px}
+.za-bubble.links{left:0;transform:none}
+.za-bubble.rechts{left:auto;right:0;transform:none}
+@keyframes za-auf{from{opacity:0;margin-bottom:-4px}to{opacity:1;margin-bottom:0}}
 .za-reiter{display:flex;gap:6px;margin-left:12px}
 .za-reiter button{height:28px;padding:0 12px;border-radius:9px;border:1px solid var(--sw-off-bd,#44444a);background:transparent;color:var(--text-2,#a3a19a);font:600 12px ${fonts.text};cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .za-reiter button.an{background:var(--sw-off-bg,#333338);color:var(--text,#ece9e1);border-color:#5a5a62}
@@ -356,9 +367,33 @@ interface AutoState extends VisRxWidgetState {
     zaShown: boolean;
     /** time range of the evaluation of the electric car */
     zaTab: Tab;
+    /** tapped bar ("<field>:<period>"), shows its kWh and € */
+    zaPick: string | null;
 }
 
 // ---------------------------------------------------------------- small parts
+
+/**
+ * Bubble above a tapped bar, kept inside the field at the edges.
+ *
+ * @param lines - Text lines
+ * @param i - Index of the bar
+ * @param count - Number of bars
+ * @param pct - Height of the bar in % of the chart
+ */
+function bubble(lines: string[], i: number, count: number, pct: number): React.JSX.Element {
+    const edge = i === 0 ? ' links' : i === count - 1 ? ' rechts' : '';
+    return (
+        <span
+            className={`za-bubble${edge}`}
+            style={{ bottom: `calc(${Math.min(100, pct)}% + 6px)` }}
+        >
+            {lines.map(l => (
+                <span key={l}>{l}</span>
+            ))}
+        </span>
+    );
+}
 
 const PUMP =
     'M5 20.5V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v15.5 M3.5 20.5h12 M7 8h5 M14 10.5h2a1 1 0 0 1 1 1v5a1.5 1.5 0 0 0 3 0V9l-3-3';
@@ -406,10 +441,11 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
     private timers: ReturnType<typeof setInterval>[] = [];
     private alive = true;
     private lastTouch = Date.now();
+    private pickTimer?: ReturnType<typeof setTimeout>;
 
     constructor(props: VisRxWidgetProps) {
         super(props);
-        this.state = { ...this.state, zaScale: 1, zaNow: Date.now(), zaShown: false, zaTab: 'woche' };
+        this.state = { ...this.state, zaScale: 1, zaNow: Date.now(), zaShown: false, zaTab: 'woche', zaPick: null };
     }
 
     static getWidgetInfo(): RxWidgetInfo {
@@ -491,6 +527,9 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
     componentWillUnmount(): void {
         this.alive = false;
         this.timers.forEach(t => clearInterval(t));
+        if (this.pickTimer) {
+            clearTimeout(this.pickTimer);
+        }
         this.zaResize?.disconnect();
         this.watcher?.stop();
         super.componentWillUnmount();
@@ -1481,6 +1520,22 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
         };
     }
 
+    /**
+     * Tap on a bar: shows its values for 6 s, a second tap hides them.
+     *
+     * @param key - "<field>:<period>"
+     */
+    private pick(key: string): void {
+        if (this.pickTimer) {
+            clearTimeout(this.pickTimer);
+        }
+        const next = this.state.zaPick === key ? null : key;
+        this.setState({ zaPick: next });
+        if (next) {
+            this.pickTimer = setTimeout(() => this.alive && this.setState({ zaPick: null }), 6_000);
+        }
+    }
+
     private renderTabs(): React.JSX.Element {
         return (
             <div
@@ -1532,9 +1587,27 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                             return (
                                 <div
                                     key={w.period}
-                                    className="w"
-                                    title={`${w.label}: ${formatNumber(w.home, 1, lang)} kWh zu Hause${w.away !== null ? `, ${formatNumber(w.away, 1, lang)} kWh unterwegs` : ''}`}
+                                    className={`w${this.state.zaPick === `g:${w.period}` ? ' gewaehlt' : ''}`}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label={`${w.label}: ${formatNumber(w.home, 1, lang)} kWh zu Hause, ${formatNumber(w.cost, 2, lang)} €`}
+                                    onClick={() => this.pick(`g:${w.period}`)}
+                                    onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && this.pick(`g:${w.period}`)}
                                 >
+                                    {this.state.zaPick === `g:${w.period}`
+                                        ? bubble(
+                                              [
+                                                  w.label,
+                                                  `${formatNumber(w.home, 1, lang)} kWh · ${formatNumber(w.cost, 2, lang)} €`,
+                                                  ...(w.away
+                                                      ? [`+ ${formatNumber(w.away, 1, lang)} kWh unterwegs`]
+                                                      : []),
+                                              ],
+                                              i,
+                                              list.length,
+                                              ((w.home + (w.away ?? 0)) / max) * 100,
+                                          )
+                                        : null}
                                     <div
                                         className="home"
                                         style={{
@@ -1681,7 +1754,8 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
         const sum = easee.reduce((a, m) => a + m.cost, 0);
         const cur = easee.find(m => m.period === current);
         const max = Math.max(1, ...easee.map(m => m.cost));
-        const total = this.boxes().reduce((a, n) => a + (num(this.c(n, 'lifetimeEnergy')) ?? 0), 0);
+        const yearKwh = num(this.e('history.yearEnergy'));
+        const yearCost = num(this.e('history.yearCost'));
         const grow = this.state.zaShown || !motion;
         return (
             <div className="za-feld">
@@ -1703,10 +1777,25 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                         {easee.map((m, i) => (
                             <div
                                 key={m.period}
-                                className={`m${m.period === current ? ' jetzt' : ''}${m.cost ? '' : ' leer'}`}
-                                title={`${periodLabel(m.period)}: ${formatNumber(m.kwh, 1, lang)} kWh, ${formatNumber(m.cost, 2, lang)} €`}
+                                className={`m${m.period === current ? ' jetzt' : ''}${m.cost ? '' : ' leer'}${this.state.zaPick === `k:${m.period}` ? ' gewaehlt' : ''}`}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`${periodLabel(m.period)}: ${formatNumber(m.kwh, 1, lang)} kWh, ${formatNumber(m.cost, 2, lang)} €`}
+                                onClick={() => this.pick(`k:${m.period}`)}
+                                onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && this.pick(`k:${m.period}`)}
                             >
-                                <span>{m.cost ? `${formatNumber(m.cost, 0, lang)} €` : ''}</span>
+                                {this.state.zaPick === `k:${m.period}`
+                                    ? bubble(
+                                          [
+                                              periodLabel(m.period),
+                                              `${formatNumber(m.kwh, 1, lang)} kWh · ${formatNumber(m.cost, 2, lang)} €`,
+                                          ],
+                                          i,
+                                          easee.length,
+                                          Math.max(3, (m.cost / max) * 100),
+                                      )
+                                    : null}
+                                <span className="wert">{m.cost ? `${formatNumber(m.cost, 0, lang)} €` : ''}</span>
                                 <div
                                     style={{
                                         height: `${grow ? Math.max(3, (m.cost / max) * 100) : 0}%`,
@@ -1720,12 +1809,12 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                 ) : (
                     <div className="za-leer">Noch keine Ladevorgänge.</div>
                 )}
-                {total > 0 ? (
+                {yearKwh !== null ? (
                     <div className="za-zaehler">
-                        Wallbox gesamt
+                        {yearLabel(this.state.zaNow, this.e('history.oldestSession'))}
                         <b>
-                            {formatNumber(total, 0, lang)} kWh
-                            {price !== null ? ` · ${formatNumber(total * price, 0, lang)} €` : ''}
+                            {formatNumber(yearKwh, 0, lang)} kWh
+                            {yearCost !== null ? ` · ${formatNumber(yearCost, 2, lang)} €` : ''}
                         </b>
                     </div>
                 ) : null}
