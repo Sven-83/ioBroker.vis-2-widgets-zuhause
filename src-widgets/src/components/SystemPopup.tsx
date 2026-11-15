@@ -22,6 +22,7 @@ import {
 } from '../lib/system';
 import { fonts, v } from '../lib/theme';
 import { Frame, useAutoClose } from './ControlPopups';
+import { ScrollPfeile } from './ScrollPfeile';
 
 /** a list is read, not operated: stay open longer than the control popups */
 const IDLE_MS = 90_000;
@@ -178,6 +179,7 @@ export function SystemPopup(p: {
     const [filter, setFilter] = React.useState<Filter>('alle');
     React.useEffect(() => restart(IDLE_MS), [restart]);
     const touch = (): void => restart(IDLE_MS);
+    const listRef = React.useRef<HTMLDivElement>(null);
 
     const n = zaehlen(p.liste);
     const grp = gruppen(p.liste, filter);
@@ -193,7 +195,7 @@ export function SystemPopup(p: {
             kind="SYSTEM"
             title="ioBroker"
             label="ioBroker-Status"
-            width={672}
+            width={724}
             hint=""
             onClose={p.onClose}
         >
@@ -316,86 +318,98 @@ export function SystemPopup(p: {
                     })}
                 </div>
 
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: COLS,
-                        columnGap: 8,
-                        padding: '0 8px',
-                        height: 22,
-                        alignItems: 'center',
-                        fontSize: 10.5,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: MUTED,
-                        fontWeight: 600,
-                        borderBottom: `1px solid ${v('border')}`,
-                    }}
-                >
-                    <span>Name</span>
-                    <span>Zustand</span>
-                    <span>seit</span>
-                    <span>RAM</span>
-                    <span>Version</span>
-                    <span>Update</span>
-                    <span>Fehler</span>
-                </div>
-                <div
-                    onScroll={touch}
-                    style={{
-                        height: 'min(330px, calc(100vh - 330px))',
-                        minHeight: 140,
-                        overflowY: 'auto',
-                        scrollbarWidth: 'thin',
-                        scrollbarColor: '#44444a transparent',
-                    }}
-                >
-                    {grp.map(g => (
-                        <React.Fragment key={g.titel}>
-                            <Gruppentitel text={`${g.titel} · ${g.zeilen.length}`} />
-                            {g.zeilen.map((x, i) => (
-                                <Zeile
-                                    key={x.id}
-                                    x={x}
-                                    now={p.now}
-                                    odd={i % 2 === 1}
-                                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: COLS,
+                                columnGap: 8,
+                                padding: '0 8px',
+                                height: 22,
+                                alignItems: 'center',
+                                fontSize: 10.5,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                color: MUTED,
+                                fontWeight: 600,
+                                borderBottom: `1px solid ${v('border')}`,
+                            }}
+                        >
+                            <span>Name</span>
+                            <span>Zustand</span>
+                            <span>seit</span>
+                            <span>RAM</span>
+                            <span>Version</span>
+                            <span>Update</span>
+                            <span>Fehler</span>
+                        </div>
+                        <div
+                            ref={listRef}
+                            onScroll={touch}
+                            style={{
+                                height: 'min(330px, calc(100vh - 330px))',
+                                minHeight: 140,
+                                overflowY: 'auto',
+                                overscrollBehavior: 'contain', // no pull-to-refresh of the page when scrolling up
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: '#44444a transparent',
+                            }}
+                        >
+                            {grp.map(g => (
+                                <React.Fragment key={g.titel}>
+                                    <Gruppentitel text={`${g.titel} · ${g.zeilen.length}`} />
+                                    {g.zeilen.map((x, i) => (
+                                        <Zeile
+                                            key={x.id}
+                                            x={x}
+                                            now={p.now}
+                                            odd={i % 2 === 1}
+                                        />
+                                    ))}
+                                </React.Fragment>
                             ))}
-                        </React.Fragment>
-                    ))}
-                    {ohne.length ? (
-                        <>
-                            <Gruppentitel text={`Weitere Adapter (Widgets, ohne Instanz) · ${ohne.length}`} />
-                            {ohne.map((x, i) => (
-                                <div
-                                    key={x.id}
-                                    style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: COLS,
-                                        alignItems: 'center',
-                                        columnGap: 8,
-                                        padding: '0 8px',
-                                        height: 34,
-                                        borderRadius: 8,
-                                        fontSize: 13,
-                                        background: i % 2 ? 'rgba(255,255,255,.018)' : 'transparent',
-                                    }}
-                                >
-                                    <span style={{ ...cell, fontWeight: 600 }}>{x.id}</span>
-                                    <span style={{ ...cell, color: v('text-2') }}>
-                                        <Led stufe="info" />
-                                        ohne Prozess
-                                    </span>
-                                    <span style={num}>—</span>
-                                    <span style={num}>—</span>
-                                    <span style={num}>{x.ver}</span>
-                                    <span style={{ ...cell, color: YELLOW, fontWeight: 600 }}>→ {x.avail}</span>
-                                    <span />
-                                </div>
-                            ))}
-                        </>
-                    ) : null}
-                    {!grp.length && !ohne.length ? <Gruppentitel text="Nichts in dieser Auswahl." /> : null}
+                            {ohne.length ? (
+                                <>
+                                    <Gruppentitel text={`Weitere Adapter (Widgets, ohne Instanz) · ${ohne.length}`} />
+                                    {ohne.map((x, i) => (
+                                        <div
+                                            key={x.id}
+                                            style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: COLS,
+                                                alignItems: 'center',
+                                                columnGap: 8,
+                                                padding: '0 8px',
+                                                height: 34,
+                                                borderRadius: 8,
+                                                fontSize: 13,
+                                                background: i % 2 ? 'rgba(255,255,255,.018)' : 'transparent',
+                                            }}
+                                        >
+                                            <span style={{ ...cell, fontWeight: 600 }}>{x.id}</span>
+                                            <span style={{ ...cell, color: v('text-2') }}>
+                                                <Led stufe="info" />
+                                                ohne Prozess
+                                            </span>
+                                            <span style={num}>—</span>
+                                            <span style={num}>—</span>
+                                            <span style={num}>{x.ver}</span>
+                                            <span style={{ ...cell, color: YELLOW, fontWeight: 600 }}>→ {x.avail}</span>
+                                            <span />
+                                        </div>
+                                    ))}
+                                </>
+                            ) : null}
+                            {!grp.length && !ohne.length ? <Gruppentitel text="Nichts in dieser Auswahl." /> : null}
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', paddingTop: 22 }}>
+                        <ScrollPfeile
+                            target={listRef}
+                            onUse={touch}
+                        />
+                    </div>
                 </div>
 
                 <div

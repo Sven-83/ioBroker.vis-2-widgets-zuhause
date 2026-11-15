@@ -693,6 +693,7 @@ export default class ZuhauseEtagenPanel extends (window.visRxWidget as typeof Vi
                     fontFamily: fonts.text,
                     color: v('text'),
                     overflowY: 'auto',
+                    overscrollBehavior: 'contain', // no pull-to-refresh of the page when scrolling up
                 }}
             >
                 {content}

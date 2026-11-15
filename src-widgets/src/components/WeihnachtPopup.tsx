@@ -35,6 +35,7 @@ import {
 } from '../lib/weihnacht';
 import { v } from '../lib/theme';
 import { Frame, useAutoClose } from './ControlPopups';
+import { ScrollPfeile } from './ScrollPfeile';
 import { KreisIcon, MiniIcon, SunsetIcon } from './WeihnachtIcons';
 
 export const WEIHNACHT_CLOSE_MS = 60_000;
@@ -310,6 +311,7 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
     const [day, setDay] = React.useState(today);
     const [edit, setEdit] = React.useState<Edit | null>(null);
     const touch = (): void => restart(WEIHNACHT_CLOSE_MS);
+    const listRef = React.useRef<HTMLDivElement>(null);
     React.useEffect(() => restart(WEIHNACHT_CLOSE_MS), [restart]);
 
     const k = p.kreise[Math.min(sel, p.kreise.length - 1)];
@@ -494,105 +496,122 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
 
     // ---------------------------------------------------------------- list of run times
     const listView = (
-        <div style={{ height: 140, overflowY: 'auto', scrollbarWidth: 'thin' }}>
-            {list.length ? (
-                list.map((e, i) => {
-                    const s = startMin(e, sun);
-                    const runs = day === today && s !== null && s <= nowMin && nowMin < endMin(e);
-                    return (
-                        <div
-                            key={`${i}-${e.start}-${e.sonne}-${e.ende}`}
-                            className="zh-wn-in"
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr 44px 44px',
-                                gap: 8,
-                                height: 44,
-                                marginBottom: 6,
-                            }}
-                        >
-                            <button
-                                type="button"
-                                className="zh-btn"
-                                onClick={() => openEdit(i)}
+        <div style={{ display: 'flex', gap: 8 }}>
+            <div
+                ref={listRef}
+                style={{
+                    flex: 1,
+                    minWidth: 0,
+                    height: 140,
+                    overflowY: 'auto',
+                    overscrollBehavior: 'contain',
+                    scrollbarWidth: 'thin',
+                }}
+            >
+                {list.length ? (
+                    list.map((e, i) => {
+                        const s = startMin(e, sun);
+                        const runs = day === today && s !== null && s <= nowMin && nowMin < endMin(e);
+                        return (
+                            <div
+                                key={`${i}-${e.start}-${e.sonne}-${e.ende}`}
+                                className="zh-wn-in"
                                 style={{
-                                    ...btn(false),
-                                    background: '#303035',
-                                    display: 'flex',
-                                    alignItems: 'center',
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 44px 44px',
                                     gap: 8,
-                                    padding: '0 14px',
-                                    fontSize: 17,
-                                    color: v('text'),
+                                    height: 44,
+                                    marginBottom: 6,
                                 }}
                             >
-                                {e.sonne !== undefined ? (
-                                    <>
-                                        <span style={{ color: '#ffb35c', display: 'flex' }}>
-                                            <SunsetIcon />
-                                        </span>
-                                        {s !== null ? fmtHm(s) : ''}
+                                <button
+                                    type="button"
+                                    className="zh-btn"
+                                    onClick={() => openEdit(i)}
+                                    style={{
+                                        ...btn(false),
+                                        background: '#303035',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        padding: '0 14px',
+                                        fontSize: 17,
+                                        color: v('text'),
+                                    }}
+                                >
+                                    {e.sonne !== undefined ? (
+                                        <>
+                                            <span style={{ color: '#ffb35c', display: 'flex' }}>
+                                                <SunsetIcon />
+                                            </span>
+                                            {s !== null ? fmtHm(s) : ''}
+                                            <small style={{ fontSize: 11, color: v('text-2'), fontWeight: 500 }}>
+                                                Sonnenunterg. {signed(e.sonne)}
+                                            </small>
+                                        </>
+                                    ) : (
+                                        e.start
+                                    )}
+                                    {' – '}
+                                    {fmtHm(endMin(e))}
+                                    {e.ende === undefined ? (
                                         <small style={{ fontSize: 11, color: v('text-2'), fontWeight: 500 }}>
-                                            Sonnenunterg. {signed(e.sonne)}
+                                            Standard
                                         </small>
-                                    </>
-                                ) : (
-                                    e.start
-                                )}
-                                {' – '}
-                                {fmtHm(endMin(e))}
-                                {e.ende === undefined ? (
-                                    <small style={{ fontSize: 11, color: v('text-2'), fontWeight: 500 }}>
-                                        Standard
-                                    </small>
-                                ) : null}
-                                {runs ? (
-                                    <span
-                                        style={{
-                                            marginLeft: 'auto',
-                                            fontSize: 11,
-                                            color: v('st-led'),
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        ● läuft
-                                    </span>
-                                ) : null}
-                            </button>
-                            <button
-                                type="button"
-                                className="zh-btn"
-                                aria-label="Bearbeiten"
-                                onClick={() => openEdit(i)}
-                                style={btn(false, { fontSize: 17 })}
-                            >
-                                ✎
-                            </button>
-                            <button
-                                type="button"
-                                className="zh-btn"
-                                aria-label="Löschen"
-                                onClick={() => p.onSave(k.idx, removeEntry(k.plan, day, i))}
-                                style={btn(false, { fontSize: 17, color: '#ff9b9b' })}
-                            >
-                                🗑
-                            </button>
-                        </div>
-                    );
-                })
-            ) : (
-                <div style={{ color: v('text-2'), fontSize: 13, padding: '12px 2px' }}>
-                    Keine Laufzeit an diesem Tag.
-                </div>
-            )}
-            <button
-                type="button"
-                className="zh-btn"
-                onClick={() => setEdit({ idx: -1, orig: null, draft: newDraft(), days: new Set([day]) })}
-                style={btn(false, { width: '100%', height: 36, fontSize: 13 })}
-            >
-                ＋ Laufzeit hinzufügen
-            </button>
+                                    ) : null}
+                                    {runs ? (
+                                        <span
+                                            style={{
+                                                marginLeft: 'auto',
+                                                fontSize: 11,
+                                                color: v('st-led'),
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            ● läuft
+                                        </span>
+                                    ) : null}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="zh-btn"
+                                    aria-label="Bearbeiten"
+                                    onClick={() => openEdit(i)}
+                                    style={btn(false, { fontSize: 17 })}
+                                >
+                                    ✎
+                                </button>
+                                <button
+                                    type="button"
+                                    className="zh-btn"
+                                    aria-label="Löschen"
+                                    onClick={() => p.onSave(k.idx, removeEntry(k.plan, day, i))}
+                                    style={btn(false, { fontSize: 17, color: '#ff9b9b' })}
+                                >
+                                    🗑
+                                </button>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div style={{ color: v('text-2'), fontSize: 13, padding: '12px 2px' }}>
+                        Keine Laufzeit an diesem Tag.
+                    </div>
+                )}
+                <button
+                    type="button"
+                    className="zh-btn"
+                    onClick={() => setEdit({ idx: -1, orig: null, draft: newDraft(), days: new Set([day]) })}
+                    style={btn(false, { width: '100%', height: 36, fontSize: 13 })}
+                >
+                    ＋ Laufzeit hinzufügen
+                </button>
+            </div>
+
+            <ScrollPfeile
+                target={listRef}
+                onUse={touch}
+            />
         </div>
     );
 

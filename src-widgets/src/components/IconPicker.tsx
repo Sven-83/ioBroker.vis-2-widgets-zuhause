@@ -21,6 +21,7 @@ export function IconPicker({
                 width: '100%',
                 maxHeight: 220,
                 overflowY: 'auto',
+                overscrollBehavior: 'contain', // no pull-to-refresh of the page when scrolling up
             }}
         >
             {PICKER_ICONS.map(name => {
