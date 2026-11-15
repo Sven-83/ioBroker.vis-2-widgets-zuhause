@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
     bar,
+    awayYear,
     chargedPeriods,
     costMonths,
     homePrice,
@@ -203,10 +204,28 @@ describe('autoseite', () => {
         );
         it('charged: home from the wallbox, away only where Ford recorded', () =>
             assert.deepEqual(chargedPeriods(easee, ford, 8), [
-                { period: '2026-W44', label: '44', home: 37, away: null, cost: 13.32 },
-                { period: '2026-W45', label: '45', home: 79.2, away: null, cost: 28.5 },
-                { period: '2026-W46', label: '46', home: 54.3, away: 70 - 54.3, cost: 19.56 },
+                { period: '2026-W44', label: '44', home: 37, away: null, awayCost: null, cost: 13.32 },
+                { period: '2026-W45', label: '45', home: 79.2, away: null, awayCost: null, cost: 28.5 },
+                { period: '2026-W46', label: '46', home: 54.3, away: 70 - 54.3, awayCost: null, cost: 19.56 },
             ]));
+        it('charged: on the road from the receipts once there are some', () => {
+            const away = parseEasee(JSON.stringify([{ period: '2026-W45', sessions: 2, kwh: 41.1, cost: 22.02 }]));
+            const list = chargedPeriods(easee, ford, 8, away);
+            assert.deepEqual(
+                list.map(w => [w.period, w.away, w.awayCost]),
+                [
+                    ['2026-W44', 0, 0],
+                    ['2026-W45', 41.1, 22.02],
+                    ['2026-W46', 0, 0],
+                ],
+            );
+        });
+        it('year line of the receipts', () => {
+            assert.deepEqual(awayYear(41.1, 22.02), { kwh: 41.1, cost: 22.02 });
+            assert.deepEqual(awayYear(41.1, null), { kwh: 41.1, cost: 0 });
+            assert.equal(awayYear(0, 0), null);
+            assert.equal(awayYear(undefined, undefined), null);
+        });
         it('small differences are charging losses', () => {
             const f = parseFordWeeks(
                 JSON.stringify([{ period: '2026-W46', km: 5, kwhPer100: null, kwhCharged: 56, temp: null }]),

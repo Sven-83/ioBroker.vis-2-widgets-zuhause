@@ -20,6 +20,7 @@ import {
     WEEK_MS,
     bar,
     boldParts,
+    awayYear,
     chargedPeriods,
     costMonths,
     homePrice,
@@ -159,6 +160,16 @@ const EASEE_DP = [
     'history.oldestSession',
 ] as const;
 type EaseeDp = (typeof EASEE_DP)[number];
+
+/** charging on the road from the receipts (mobility adapter, away.*) */
+const AWAY_DP = [
+    'history.days',
+    'history.months',
+    'history.yearEnergy',
+    'history.yearCost',
+    'history.sessionCount',
+] as const;
+type AwayDp = (typeof AWAY_DP)[number];
 
 const EV = '#6fe08a';
 const AWAY = '#4aa3ff';
@@ -578,6 +589,10 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
         return this.watcher?.val(`${this.inst}.easee.${dp}`);
     }
 
+    private a(dp: AwayDp): unknown {
+        return this.watcher?.val(`${this.inst}.away.${dp}`);
+    }
+
     private v(dp: CarDp): unknown {
         return this.watcher?.val(`${this.inst}.ford.vehicle${this.car}.${dp}`);
     }
@@ -592,6 +607,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
             ...this.stations().flatMap(n => STATION_DP.map(dp => `${this.inst}.fuel.station${n}.${dp}`)),
             ...this.boxes().flatMap(n => CHARGER_DP.map(dp => `${this.inst}.easee.charger${n}.${dp}`)),
             ...EASEE_DP.map(dp => `${this.inst}.easee.${dp}`),
+            ...AWAY_DP.map(dp => `${this.inst}.away.${dp}`),
         ];
         void this.watcher?.watch(ids);
     }
@@ -1503,19 +1519,28 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
     }
 
     /** Wallbox and Ford values of the chosen time range */
-    private periods(tab: Tab): { easee: EaseePeriod[]; ford: FordWeek[]; current: string } {
+    private periods(tab: Tab): {
+        easee: EaseePeriod[];
+        ford: FordWeek[];
+        away: EaseePeriod[] | null;
+        current: string;
+    } {
         const now = new Date(this.state.zaNow);
         const p2 = (n: number): string => String(n).padStart(2, '0');
+        // receipts replace the estimate once there is at least one
+        const receipts = (num(this.a('history.sessionCount')) ?? 0) > 0;
         if (tab === 'woche') {
             return {
                 easee: parseEasee(this.e('history.days')).slice(-7),
                 ford: parseFordWeeks(this.v('history.days')),
+                away: receipts ? parseEasee(this.a('history.days')) : null,
                 current: `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())}`,
             };
         }
         return {
             easee: costMonths(parseEasee(this.e('history.months')), 12),
             ford: parseFordWeeks(this.v('history.months')),
+            away: receipts ? parseEasee(this.a('history.months')) : null,
             current: `${now.getFullYear()}-${p2(now.getMonth() + 1)}`,
         };
     }
@@ -1559,8 +1584,8 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
     }
 
     private renderCharged(tab: Tab, lang: string, motion: boolean): React.JSX.Element {
-        const { easee, ford } = this.periods(tab);
-        const list = chargedPeriods(easee, ford, easee.length);
+        const { easee, ford, away: receipts } = this.periods(tab);
+        const list = chargedPeriods(easee, ford, easee.length, receipts);
         const home = list.reduce((a, w) => a + w.home, 0);
         const away = list.reduce((a, w) => a + (w.away ?? 0), 0);
         const awayKnown = list.some(w => w.away !== null);
@@ -1600,7 +1625,9 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                                                   w.label,
                                                   `${formatNumber(w.home, 1, lang)} kWh · ${formatNumber(w.cost, 2, lang)} €`,
                                                   ...(w.away
-                                                      ? [`+ ${formatNumber(w.away, 1, lang)} kWh unterwegs`]
+                                                      ? [
+                                                            `+ ${formatNumber(w.away, 1, lang)} kWh${w.awayCost !== null ? ` · ${formatNumber(w.awayCost, 2, lang)} €` : ''} unterwegs`,
+                                                        ]
                                                       : []),
                                               ],
                                               i,
@@ -1639,7 +1666,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                     </span>
                     <span>
                         <i style={{ background: AWAY }} />
-                        unterwegs{awayKnown ? '' : ' (sammelt noch)'}
+                        unterwegs{receipts ? ' (Belege)' : awayKnown ? ' (geschätzt)' : ' (sammelt noch)'}
                     </span>
                 </div>
             </div>
@@ -1756,6 +1783,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
         const max = Math.max(1, ...easee.map(m => m.cost));
         const yearKwh = num(this.e('history.yearEnergy'));
         const yearCost = num(this.e('history.yearCost'));
+        const road = awayYear(this.a('history.yearEnergy'), this.a('history.yearCost'));
         const grow = this.state.zaShown || !motion;
         return (
             <div className="za-feld">
@@ -1815,6 +1843,14 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                         <b>
                             {formatNumber(yearKwh, 0, lang)} kWh
                             {yearCost !== null ? ` · ${formatNumber(yearCost, 2, lang)} €` : ''}
+                        </b>
+                    </div>
+                ) : null}
+                {road ? (
+                    <div className="za-zaehler">
+                        Unterwegs {new Date(this.state.zaNow).getFullYear()}
+                        <b>
+                            {formatNumber(road.kwh, 0, lang)} kWh · {formatNumber(road.cost, 2, lang)} €
                         </b>
                     </div>
                 ) : null}

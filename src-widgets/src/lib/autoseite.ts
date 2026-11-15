@@ -391,8 +391,10 @@ export interface ChargedPeriod {
     period: string;
     label: string;
     home: number;
-    /** null = Ford had no data for that period yet */
+    /** null = Ford had no data for that period yet (estimate) */
     away: number | null;
+    /** amount paid on the road (receipts), null = estimate without price */
+    awayCost: number | null;
     /** costs of the wallbox sessions (at home) */
     cost: number;
 }
@@ -412,25 +414,49 @@ export function periodLabel(period: string): string {
 }
 
 /**
- * Charged energy of the last `count` periods (days, weeks or months): at home from the wallbox sessions,
- * on the road = what Ford saw the battery gain minus the wallbox (only periods Ford already recorded).
- * Ford measures in the car and the wallbox at the grid, so differences below 3 kWh count as charging losses.
+ * Charged energy of the last `count` periods (days, weeks or months): at home from the wallbox sessions.
+ * On the road: from the charging receipts (mobility.N.away.history) once there is at least one, with the
+ * amount paid. Before that an estimate = what Ford saw the battery gain minus the wallbox (only periods Ford
+ * already recorded); Ford measures in the car and the wallbox at the grid, so differences below 3 kWh count
+ * as charging losses.
+ *
+ * @param easee - Wallbox periods (easee.history.days / months)
+ * @param ford - Ford periods of the same kind
+ * @param count - Number of periods
+ * @param away - Periods of the receipts, null = no receipts (estimate)
  */
-export function chargedPeriods(easee: EaseePeriod[], ford: FordWeek[], count: number): ChargedPeriod[] {
+export function chargedPeriods(
+    easee: EaseePeriod[],
+    ford: FordWeek[],
+    count: number,
+    away: EaseePeriod[] | null = null,
+): ChargedPeriod[] {
     const fordBy = new Map(ford.map(w => [w.period, w]));
+    const awayBy = new Map((away ?? []).map(w => [w.period, w]));
     const firstFord = ford.find(w => w.km > 0 || w.kwhCharged > 0)?.period ?? null;
     return easee.slice(-count).map(w => {
+        const base = { period: w.period, label: periodLabel(w.period), home: w.kwh, cost: w.cost };
+        if (away) {
+            const a = awayBy.get(w.period);
+            return { ...base, away: a?.kwh ?? 0, awayCost: a?.cost ?? 0 };
+        }
         const f = fordBy.get(w.period);
         const recorded = firstFord !== null && f !== undefined && w.period >= firstFord;
-        const away = recorded ? Math.max(0, f.kwhCharged - w.kwh) : null;
-        return {
-            period: w.period,
-            label: periodLabel(w.period),
-            home: w.kwh,
-            cost: w.cost,
-            away: away !== null && away < 3 ? 0 : away,
-        };
+        const estimate = recorded ? Math.max(0, f.kwhCharged - w.kwh) : null;
+        return { ...base, away: estimate !== null && estimate < 3 ? 0 : estimate, awayCost: null };
     });
+}
+
+/**
+ * Line under the home charging costs: "Unterwegs 2026" with kWh and EUR of the receipts.
+ *
+ * @param yearEnergy - away.history.yearEnergy
+ * @param yearCost - away.history.yearCost
+ * @returns null without receipts this year
+ */
+export function awayYear(yearEnergy: unknown, yearCost: unknown): { kwh: number; cost: number } | null {
+    const kwh = num(yearEnergy);
+    return kwh !== null && kwh > 0 ? { kwh, cost: num(yearCost) ?? 0 } : null;
 }
 
 /**
