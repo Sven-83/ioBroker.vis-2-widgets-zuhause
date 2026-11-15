@@ -20,6 +20,7 @@ import {
     WEEK_MS,
     bar,
     boldParts,
+    awayLine,
     awayYear,
     chargedPeriods,
     costMonths,
@@ -1624,11 +1625,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                                               [
                                                   w.label,
                                                   `${formatNumber(w.home, 1, lang)} kWh · ${formatNumber(w.cost, 2, lang)} €`,
-                                                  ...(w.away
-                                                      ? [
-                                                            `+ ${formatNumber(w.away, 1, lang)} kWh${w.awayCost !== null ? ` · ${formatNumber(w.awayCost, 2, lang)} €` : ''} unterwegs`,
-                                                        ]
-                                                      : []),
+                                                  ...[awayLine(w, lang)].filter((x): x is string => !!x),
                                               ],
                                               i,
                                               list.length,

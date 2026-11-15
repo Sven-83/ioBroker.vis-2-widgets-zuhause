@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
     bar,
+    awayLine,
     awayYear,
     chargedPeriods,
     costMonths,
@@ -219,6 +220,14 @@ describe('autoseite', () => {
                     ['2026-W46', 0, 0],
                 ],
             );
+        });
+        it('bubble line on the road, also with costs only', () => {
+            const base = { period: '2026-10', label: 'Okt', home: 10, cost: 3 };
+            assert.equal(awayLine({ ...base, away: 41.1, awayCost: 22.02 }), '+ 41,1 kWh · 22,02 € unterwegs');
+            assert.equal(awayLine({ ...base, away: 0, awayCost: 11.99 }), '+ 11,99 € unterwegs');
+            assert.equal(awayLine({ ...base, away: 15.7, awayCost: null }), '+ 15,7 kWh unterwegs');
+            assert.equal(awayLine({ ...base, away: 0, awayCost: 0 }), null);
+            assert.equal(awayLine({ ...base, away: null, awayCost: null }), null);
         });
         it('year line of the receipts', () => {
             assert.deepEqual(awayYear(41.1, 22.02), { kwh: 41.1, cost: 22.02 });

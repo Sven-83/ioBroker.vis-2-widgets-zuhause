@@ -448,6 +448,26 @@ export function chargedPeriods(
 }
 
 /**
+ * Bubble line "on the road" of a bar; also for periods with costs only (subscription invoice, 0 kWh).
+ *
+ * @param w - Period
+ * @param lang - Language for the numbers
+ * @returns null if nothing was charged or paid on the road
+ */
+export function awayLine(w: ChargedPeriod, lang = 'de'): string | null {
+    const kwh = w.away ?? 0;
+    const cost = w.awayCost ?? 0;
+    if (kwh <= 0 && cost <= 0) {
+        return null;
+    }
+    const parts = [
+        kwh > 0 ? `${formatNumber(kwh, 1, lang)} kWh` : '',
+        w.awayCost !== null && cost > 0 ? `${formatNumber(cost, 2, lang)} €` : '',
+    ].filter(Boolean);
+    return `+ ${parts.join(' · ')} unterwegs`;
+}
+
+/**
  * Line under the home charging costs: "Unterwegs 2026" with kWh and EUR of the receipts.
  *
  * @param yearEnergy - away.history.yearEnergy
