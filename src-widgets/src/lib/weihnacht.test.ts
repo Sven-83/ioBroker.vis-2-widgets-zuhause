@@ -16,6 +16,7 @@ import {
     startMin,
     statusLine,
     sunsetMinutes,
+    tileOrder,
     toDraft,
     validOn,
     weekdayIndex,
@@ -153,6 +154,20 @@ describe('weihnacht', () => {
             const s = { ...base, naechsterStart: new Date(2026, 10, 17, 17).getTime() };
             assert.equal(statusLine(s, plan, new Date(2026, 10, 16, 19), sun), 'Aus · nächste Laufzeit morgen 17:00');
         });
+        it('tree out of season', () => {
+            assert.equal(statusLine({ ...base, saison: false }, plan, now, sun), 'Aus · außerhalb der Saison');
+            assert.equal(statusLine({ ...base, on: true, saison: false }, plan, now, sun), 'An');
+        });
         it('offline', () => assert.equal(statusLine({ ...base, online: false }, plan, now, sun), 'nicht erreichbar'));
+    });
+
+    describe('tileOrder', () => {
+        it('tree only in season', () => {
+            assert.deepEqual(tileOrder([true, true, true, true], [true, true, true, false]), [0, 1, 2]);
+            assert.deepEqual(tileOrder([true, true, true, true], [false, false, false, true]), [0, 1, 2, 3]);
+        });
+        it('circuits without a switch are left out', () => {
+            assert.deepEqual(tileOrder([true, false, true, false], [true, true, true, true]), [0, 2]);
+        });
     });
 });

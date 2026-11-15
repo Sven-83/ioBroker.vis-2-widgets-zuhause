@@ -1,10 +1,12 @@
 /*
- * VIS-2 widget "Weihnachtsbeleuchtung": one tile for three circuits (star, reindeer, fairy lights).
+ * VIS-2 widget "Weihnachtsbeleuchtung": one tile for star, reindeer, fairy lights and tree.
  * Every 3 s the next picture fades in; grey = off, yellow = on. Top right: small symbols of the
  * circuits that are on. A short tap switches the circuit whose picture was shown at the moment of
  * the touch (not at release); the picture then stays 3 s. A long press opens the popup with the
  * switches and the timer. The picture change runs in the browser only, no data point is written.
- * The tile writes only the switch data points and <basis>.<kreis>.laufzeiten; the ioBroker script
+ * The tree is seasonal (switch "Saison" in the popup, <basis>.baum.saison): out of season it is not in
+ * the picture change and its run times rest; without a switch data point it is left out completely.
+ * The tile writes only the switch data points, <basis>.<kreis>.laufzeiten and .saison; the ioBroker script
  * "weihnachten" does the timing and confirms the run times (ack). Shows only confirmed values.
  */
 import React from 'react';
@@ -20,19 +22,30 @@ import { ACK_TIMEOUT_MS } from '../lib/model';
 import { ensureStyles, v } from '../lib/theme';
 import { MOTION_FIELDS, PREFIX, SET_INFO, motionAllowed, motionClass } from '../lib/vis';
 import { StateWatcher } from '../lib/watch';
-import { KREISE, emptyPlan, parsePlan, serializePlan, statusLine, sunsetWeek, type Plan } from '../lib/weihnacht';
+import {
+    KREISE,
+    emptyPlan,
+    parsePlan,
+    serializePlan,
+    statusLine,
+    sunsetWeek,
+    tileOrder,
+    type Plan,
+} from '../lib/weihnacht';
 
 const LONG_PRESS_MS = 500;
 const CHANGE_MS = 3000;
 const HOLD_AFTER_TAP_MS = 3000;
 const DATA = ['laufzeiten', 'hand', 'handBis', 'nachtTimer', 'naechsterStart'] as const;
-const OID_FIELD = ['oidStern', 'oidRentier', 'oidLichterkette'] as const;
+const OID_FIELD = ['oidStern', 'oidRentier', 'oidLichterkette', 'oidBaum'] as const;
+const none = (): boolean[] => KREISE.map(() => false);
 
 interface WeihnachtRxData {
     basis: string;
     oidStern: string;
     oidRentier: string;
     oidLichterkette: string;
+    oidBaum: string;
     label: string;
     animation: string;
     animationStufe: string;
@@ -46,6 +59,7 @@ interface WeihnachtState extends VisRxWidgetState {
     zhPending: boolean[];
     zhUnconfirmed: boolean[];
     zhPlanPending: boolean[];
+    zhSaisonPending: boolean[];
     zhPopup: boolean;
     zhNow: number;
     zhLat: number | null;
@@ -65,6 +79,7 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
     private pauseTimer?: ReturnType<typeof setTimeout>;
     private ackTimers: (ReturnType<typeof setTimeout> | undefined)[] = [];
     private planTimers: (ReturnType<typeof setTimeout> | undefined)[] = [];
+    private saisonTimers: (ReturnType<typeof setTimeout> | undefined)[] = [];
     private wanted: (boolean | undefined)[] = [];
     private clock?: ReturnType<typeof setInterval>;
 
@@ -75,9 +90,10 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
             zhShown: 0,
             zhPause: false,
             zhPress: false,
-            zhPending: [false, false, false],
-            zhUnconfirmed: [false, false, false],
-            zhPlanPending: [false, false, false],
+            zhPending: none(),
+            zhUnconfirmed: none(),
+            zhPlanPending: none(),
+            zhSaisonPending: none(),
             zhPopup: false,
             zhNow: Date.now(),
             zhLat: null,
@@ -106,6 +122,7 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
                         { name: 'oidStern', type: 'id', label: 'weihnacht_stern' },
                         { name: 'oidRentier', type: 'id', label: 'weihnacht_rentier' },
                         { name: 'oidLichterkette', type: 'id', label: 'weihnacht_lichterkette' },
+                        { name: 'oidBaum', type: 'id', label: 'weihnacht_baum', tooltip: 'weihnacht_baum_tip' },
                         { name: 'label', type: 'text', label: 'weihnacht_name', default: 'Weihnacht' },
                     ],
                 },
@@ -144,7 +161,13 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
 
     componentWillUnmount(): void {
         this.cancelLongPress();
-        for (const t of [this.changeTimer, this.pauseTimer, ...this.ackTimers, ...this.planTimers]) {
+        for (const t of [
+            this.changeTimer,
+            this.pauseTimer,
+            ...this.ackTimers,
+            ...this.planTimers,
+            ...this.saisonTimers,
+        ]) {
             if (t) {
                 clearTimeout(t);
             }
@@ -183,14 +206,40 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
         return /\.Relay0\.Switch$/.test(id) ? id.replace(/\.Relay0\.Switch$/, '.online') : '';
     }
 
-    private dataId(i: number, dp: (typeof DATA)[number]): string {
+    private dataId(i: number, dp: (typeof DATA)[number] | 'saison'): string {
         return `${this.basis}.${KREISE[i].key}.${dp}`;
+    }
+
+    private configured(i: number): boolean {
+        return !!this.switchId(i);
+    }
+
+    /** seasonal circuit in season (confirmed); non-seasonal circuits are always "in season" */
+    private inSeason(i: number): boolean {
+        return !KREISE[i].seasonal || this.ack(this.dataId(i, 'saison')) === true;
+    }
+
+    /** circuits in the picture change */
+    private order(): number[] {
+        return tileOrder(
+            KREISE.map((_, i) => this.configured(i)),
+            KREISE.map((_, i) => this.inSeason(i)),
+        );
+    }
+
+    /** the picture shown: zhShown, or the first one when it left the change (tree out of season) */
+    private shown(): number {
+        const o = this.order();
+        return o.includes(this.state.zhShown) ? this.state.zhShown : (o[0] ?? 0);
     }
 
     private watch(): void {
         const ids: string[] = [];
         KREISE.forEach((_, i) => {
             ids.push(this.switchId(i), this.onlineId(i), ...DATA.map(dp => this.dataId(i, dp)));
+            if (KREISE[i].seasonal) {
+                ids.push(this.dataId(i, 'saison'));
+            }
         });
         void this.watcher?.watch(ids.filter(Boolean));
     }
@@ -219,6 +268,7 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
         const pending = [...this.state.zhPending];
         const unconfirmed = [...this.state.zhUnconfirmed];
         const planPending = [...this.state.zhPlanPending];
+        const saisonPending = [...this.state.zhSaisonPending];
         let changed = false;
         KREISE.forEach((_, i) => {
             if (pending[i] && this.on(i) === this.wanted[i]) {
@@ -235,12 +285,18 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
                     changed = true;
                 }
             }
+            if (saisonPending[i] && this.watcher?.snapshot(this.dataId(i, 'saison'))?.ack) {
+                clearTimeout(this.saisonTimers[i]);
+                saisonPending[i] = false;
+                changed = true;
+            }
         });
         if (changed) {
             this.setState({
                 zhPending: pending,
                 zhUnconfirmed: unconfirmed,
                 zhPlanPending: planPending,
+                zhSaisonPending: saisonPending,
                 zhNow: Date.now(),
             });
         } else {
@@ -256,7 +312,9 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
         }
         this.changeTimer = setTimeout(() => {
             if (!this.state.zhPress) {
-                this.setState(s => ({ zhShown: (s.zhShown + 1) % KREISE.length }));
+                const o = this.order();
+                const at = o.indexOf(this.shown());
+                this.setState({ zhShown: o.length ? o[(at + 1) % o.length] : 0 });
             }
             this.scheduleChange();
         }, ms);
@@ -314,6 +372,26 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
         }, ACK_TIMEOUT_MS * 2);
     };
 
+    private setSaison = (i: number, on: boolean): void => {
+        if (this.props.editMode || !KREISE[i].seasonal) {
+            return;
+        }
+        this.props.context.setValue(this.dataId(i, 'saison'), on);
+        clearTimeout(this.saisonTimers[i]);
+        this.setState(s => {
+            const p = [...s.zhSaisonPending];
+            p[i] = true;
+            return { zhSaisonPending: p };
+        });
+        this.saisonTimers[i] = setTimeout(() => {
+            this.setState(s => {
+                const p = [...s.zhSaisonPending];
+                p[i] = false;
+                return { zhSaisonPending: p };
+            });
+        }, ACK_TIMEOUT_MS * 2);
+    };
+
     private cancelLongPress(): void {
         if (this.longTimer) {
             clearTimeout(this.longTimer);
@@ -326,7 +404,7 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
             return;
         }
         // the picture at the moment of the touch counts, not the one at release
-        this.captured = this.state.zhShown;
+        this.captured = this.shown();
         this.longFired = false;
         this.cancelLongPress();
         this.setState({ zhPress: true });
@@ -363,7 +441,7 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
     private onKeyDown = (e: React.KeyboardEvent): void => {
         if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
             e.preventDefault();
-            this.tapCircuit(this.state.zhShown);
+            this.tapCircuit(this.shown());
         }
     };
 
@@ -388,7 +466,8 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
         const now = new Date(this.state.zhNow);
         const levelClass = motionClass(d.animationStufe, d.nachtAus, now);
         const motion = motionAllowed(levelClass) && d.animation !== 'keine';
-        const shown = this.state.zhShown;
+        const shown = this.shown();
+        const order = this.order();
         const ons = KREISE.map((_, i) => this.on(i));
         const onlines = KREISE.map((_, i) => this.online(i));
         const sunsets = sunsetWeek(now, this.state.zhLat, this.state.zhLon);
@@ -399,24 +478,29 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
 
         const layers = (
             <>
-                {KREISE.map((c, i) => (
-                    <span
-                        key={c.key}
-                        className={`zh-wn-layer${i === shown ? ' zh-wn-show' : ''}${ons[i] ? ' zh-wn-on' : ''}`}
-                        style={{ color: ons[i] ? v('sw-on-fg') : undefined }}
-                    >
-                        <span style={{ display: 'flex', opacity: ons[i] ? 1 : 0.6 }}>
-                            <KreisIcon
-                                kreis={c.key}
-                                on={ons[i]}
-                            />
-                        </span>
-                        <span style={{ lineHeight: 1.1 }}>{c.short}</span>
-                    </span>
-                ))}
+                {order
+                    .map(i => KREISE[i])
+                    .map((c, n) => {
+                        const i = order[n];
+                        return (
+                            <span
+                                key={c.key}
+                                className={`zh-wn-layer${i === shown ? ' zh-wn-show' : ''}${ons[i] ? ' zh-wn-on' : ''}`}
+                                style={{ color: ons[i] ? v('sw-on-fg') : undefined }}
+                            >
+                                <span style={{ display: 'flex', opacity: ons[i] ? 1 : 0.6 }}>
+                                    <KreisIcon
+                                        kreis={c.key}
+                                        on={ons[i]}
+                                    />
+                                </span>
+                                <span style={{ lineHeight: 1.1 }}>{c.short}</span>
+                            </span>
+                        );
+                    })}
                 {this.state.zhPending[shown] ? null : (
                     <span style={{ position: 'absolute', right: 6, top: 6, display: 'flex', gap: 2 }}>
-                        {KREISE.filter((_, i) => ons[i]).map(c => (
+                        {KREISE.filter((_, i) => ons[i] && this.configured(i)).map(c => (
                             <span
                                 key={c.key}
                                 className="zh-wn-badge"
@@ -439,9 +523,9 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
                         gap: 4,
                     }}
                 >
-                    {KREISE.map((c, i) => (
+                    {order.map(i => (
                         <span
-                            key={c.key}
+                            key={KREISE[i].key}
                             className={i === shown ? 'zh-wn-dot-a' : undefined}
                             style={{
                                 width: 4,
@@ -471,11 +555,16 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
             </>
         );
 
-        const kreise: WeihnachtKreis[] = KREISE.map((c, i) => {
+        const all: WeihnachtKreis[] = KREISE.map((c, i) => {
             const plan = this.plan(i);
+            const saison = c.seasonal ? this.inSeason(i) : undefined;
             return {
+                idx: i,
                 key: c.key,
                 name: c.name,
+                short: c.short,
+                saison,
+                saisonPending: this.state.zhSaisonPending[i],
                 on: ons[i],
                 online: onlines[i],
                 pending: this.state.zhPending[i],
@@ -490,6 +579,7 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
                         handBis: Number(this.ack(this.dataId(i, 'handBis'))) || 0,
                         nachtTimer: this.ack(this.dataId(i, 'nachtTimer')) === true,
                         naechsterStart: Number(this.ack(this.dataId(i, 'naechsterStart'))) || 0,
+                        saison,
                     },
                     plan,
                     now,
@@ -497,6 +587,8 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
                 ),
             };
         });
+        // the stern, reindeer and fairy lights always have a row; the tree only with its switch data point
+        const kreise = all.filter((c, i) => !KREISE[i].seasonal || this.configured(i));
 
         return (
             <Scaled base={TILE_BASE}>
@@ -507,7 +599,7 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
                             label=""
                             hideEmptyLabel
                             ariaLabel={`${name}: ${k.name} ${lit ? 'an' : 'aus'}`}
-                            title={kreise[shown].status}
+                            title={all[shown].status}
                             icon={<span style={{ width: 36, height: 32 }} />}
                             overlay={layers}
                             clickable={!this.props.editMode}
@@ -530,6 +622,7 @@ export default class ZuhauseWeihnacht extends (window.visRxWidget as typeof VisR
                                 motion={motion}
                                 onSwitch={this.setSwitch}
                                 onSave={this.savePlan}
+                                onSaison={this.setSaison}
                                 onClose={this.closePopup}
                             />
                         ) : null}

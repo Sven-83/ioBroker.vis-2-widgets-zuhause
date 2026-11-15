@@ -1,5 +1,5 @@
 /*
- * Christmas lights (star, reindeer, fairy lights): pure helpers for the widget ZuhauseWeihnacht.
+ * Christmas lights (star, reindeer, fairy lights, tree): pure helpers for the widget ZuhauseWeihnacht.
  * The run times are written as JSON to <basis>.<kreis>.laufzeiten; the ioBroker script
  * "weihnachten" switches the lamps and confirms the JSON normalised (ack). The rules here mirror
  * that script (Sven, 15.11.2026): no end -> 23:00, never over midnight, start fixed or sunset ± min.
@@ -11,12 +11,25 @@ export const SUN_STEP = 5;
 export const DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
 export const DAY_NAMES = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] as const;
 
-export type KreisKey = 'stern' | 'rentier' | 'lichterkette';
-export const KREISE: { key: KreisKey; name: string; short: string }[] = [
+export type KreisKey = 'stern' | 'rentier' | 'lichterkette' | 'baum';
+/**
+ * seasonal = only in season (switch "Saison" in the popup, data point <basis>.<kreis>.saison):
+ * out of season the circuit is not in the picture change of the tile and its run times rest.
+ */
+export const KREISE: { key: KreisKey; name: string; short: string; seasonal?: boolean }[] = [
     { key: 'stern', name: 'Stern', short: 'Stern' },
     { key: 'rentier', name: 'Rentier', short: 'Rentier' },
     { key: 'lichterkette', name: 'Lichterkette', short: 'Lichterk.' },
+    { key: 'baum', name: 'Baum', short: 'Baum', seasonal: true },
 ];
+
+/**
+ * circuits in the picture change of the tile: all configured ones, seasonal ones only in season
+ * (configured = has a switch data point, inSeason = confirmed value of <kreis>.saison)
+ */
+export function tileOrder(configured: boolean[], inSeason: boolean[]): number[] {
+    return KREISE.map((_, i) => i).filter(i => configured[i] && (!KREISE[i].seasonal || inSeason[i]));
+}
 
 /** one run time as stored: start fixed ("HH:MM") or relative to sunset (minutes), end optional */
 export interface Entry {
@@ -310,6 +323,8 @@ export interface KreisStatus {
     handBis: number;
     nachtTimer: boolean;
     naechsterStart: number;
+    /** false = seasonal circuit out of season (run times rest) */
+    saison?: boolean;
 }
 
 function dayTime(ts: number, now: Date): string {
@@ -335,6 +350,9 @@ export function statusLine(s: KreisStatus, plan: Plan, now: Date, sunsets: (numb
             return `An · Nacht-Timer noch ${Math.max(1, Math.ceil((s.handBis - now.getTime()) / 60000))} min`;
         }
         return `${s.on ? 'An' : 'Aus'} · Hand bis ${dayTime(s.handBis, now)}`;
+    }
+    if (s.saison === false) {
+        return s.on ? 'An' : 'Aus · außerhalb der Saison';
     }
     const day = weekdayIndex(now);
     const running = windowsOf(plan.tage[day], sunsets[day]).find(

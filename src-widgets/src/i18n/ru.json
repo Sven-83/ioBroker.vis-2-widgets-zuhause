@@ -274,5 +274,7 @@
     "weihnacht_stern": "Switch star",
     "weihnacht_rentier": "Switch reindeer",
     "weihnacht_lichterkette": "Switch fairy lights",
+    "weihnacht_baum": "Switch tree",
+    "weihnacht_baum_tip": "Leave empty without a tree. Season switch in the popup: shows the tree and activates its run times",
     "weihnacht_name": "Name on the tile"
 }

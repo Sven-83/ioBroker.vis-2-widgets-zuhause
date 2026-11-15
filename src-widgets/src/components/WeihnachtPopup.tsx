@@ -1,6 +1,7 @@
 /*
  * Popup of the Christmas lights (long press on the tile): one row per circuit with its real state and
- * an on/off button, below the timer: circuit, weekday, a 24 h bar and the list of run times.
+ * an on/off button (the icon switches too); the tree has the switch "Saison" in its row (out of season:
+ * hidden on the tile, its run times rest and are shown greyed). Below the timer: circuit, weekday, a 24 h bar and the list of run times.
  * Editing covers the timer area: days (several at once), start as time or sunset ± minutes,
  * end as time or "not set" (= 23:00). Plus/minus instead of a keyboard, holding repeats faster.
  * Closes after 60 s without input (editing needs longer than the 5 s of the switch popups).
@@ -39,8 +40,14 @@ import { KreisIcon, MiniIcon, SunsetIcon } from './WeihnachtIcons';
 export const WEIHNACHT_CLOSE_MS = 60_000;
 
 export interface WeihnachtKreis {
+    /** index in KREISE (the widget may leave out circuits without a switch) */
+    idx: number;
     key: KreisKey;
     name: string;
+    short: string;
+    /** only for seasonal circuits (tree): confirmed value of <kreis>.saison */
+    saison?: boolean;
+    saisonPending?: boolean;
     on: boolean;
     online: boolean;
     pending: boolean;
@@ -58,6 +65,7 @@ export interface WeihnachtPopupProps {
     motion: boolean;
     onSwitch: (index: number, on: boolean) => void;
     onSave: (index: number, plan: Plan) => void;
+    onSaison: (index: number, on: boolean) => void;
     onClose: () => void;
 }
 
@@ -304,7 +312,12 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
     const touch = (): void => restart(WEIHNACHT_CLOSE_MS);
     React.useEffect(() => restart(WEIHNACHT_CLOSE_MS), [restart]);
 
-    const k = p.kreise[sel];
+    const k = p.kreise[Math.min(sel, p.kreise.length - 1)];
+    /** seasonal circuit out of season: its run times rest, shown greyed (still editable) */
+    const resting = k.saison === false;
+    const restStyle: React.CSSProperties = resting
+        ? { opacity: 0.38, filter: 'grayscale(1)', transition: 'opacity .3s' }
+        : { transition: 'opacity .3s' };
     const list = k.plan.tage[day];
     const sun = p.sunsets[day];
     const nowMin = minuteOfDay(p.now);
@@ -321,33 +334,42 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
         }
         let plan = applyDraft(k.plan, day, edit.idx, edit.orig, edit.draft, edit.days);
         plan = { v: 1, tage: plan.tage.map((l, d) => sortDay(l, p.sunsets[d])) };
-        p.onSave(sel, plan);
+        p.onSave(k.idx, plan);
         setEdit(null);
     };
 
     // ---------------------------------------------------------------- rows: switch per circuit
     const rows = (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {p.kreise.map((c, i) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {p.kreise.map(c => (
                 <div
                     key={c.key}
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: '46px 1fr 104px',
+                        gridTemplateColumns: c.saison !== undefined ? '44px 1fr auto 104px' : '44px 1fr 104px',
                         gap: 10,
                         alignItems: 'center',
-                        height: 46,
+                        height: 44,
                     }}
                 >
-                    <span
-                        className={c.on && p.motion ? 'zh-wn-on' : undefined}
+                    <button
+                        type="button"
+                        className={`zh-btn${c.on && p.motion ? ' zh-wn-on' : ''}`}
+                        aria-label={`${c.name} ${c.on ? 'aus' : 'ein'}schalten`}
+                        disabled={!c.online || c.pending}
+                        onClick={() => {
+                            touch();
+                            p.onSwitch(c.idx, !c.on);
+                        }}
                         style={{
-                            width: 46,
-                            height: 46,
+                            width: 44,
+                            height: 44,
+                            padding: 0,
                             borderRadius: 11,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            cursor: 'pointer',
                             ...(c.on ? btnOn : btnOff),
                             ...(c.online
                                 ? null
@@ -363,7 +385,7 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
                             on={c.on}
                             size={30}
                         />
-                    </span>
+                    </button>
                     <span style={{ display: 'flex', flexDirection: 'column', fontSize: 15, fontWeight: 600 }}>
                         {c.name}
                         <span
@@ -376,6 +398,76 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
                             {c.unconfirmed ? 'nicht bestätigt' : c.status}
                         </span>
                     </span>
+                    {c.saison !== undefined ? (
+                        <button
+                            type="button"
+                            className="zh-btn"
+                            aria-pressed={c.saison}
+                            aria-label={`${c.name}: Saison`}
+                            disabled={c.saisonPending}
+                            onClick={() => {
+                                touch();
+                                p.onSaison(c.idx, !c.saison);
+                            }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 7,
+                                height: 42,
+                                padding: '0 10px 0 9px',
+                                borderRadius: 12,
+                                border: `1px solid ${c.saison ? '#6b5a2c' : v('sw-off-bd')}`,
+                                background: 'transparent',
+                                color: c.saison ? v('text') : v('text-2'),
+                                fontSize: 12,
+                                fontWeight: 600,
+                                fontFamily: 'inherit',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                opacity: c.saisonPending ? 0.6 : 1,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    position: 'relative',
+                                    flex: 'none',
+                                    width: 30,
+                                    height: 18,
+                                    borderRadius: 9,
+                                    background: c.saison ? v('sw-on') : '#44444a',
+                                    transition: 'background .25s',
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        position: 'absolute',
+                                        left: 2,
+                                        top: 2,
+                                        width: 14,
+                                        height: 14,
+                                        borderRadius: '50%',
+                                        background: c.saison ? '#fff' : '#cfccc3',
+                                        transform: c.saison ? 'translateX(12px)' : undefined,
+                                        transition: 'transform .25s, background .25s',
+                                    }}
+                                />
+                            </span>
+                            <span>
+                                Saison
+                                <small
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 9.5,
+                                        color: '#77756e',
+                                        fontWeight: 500,
+                                        lineHeight: 1.1,
+                                    }}
+                                >
+                                    {c.saisonPending ? '…' : c.saison ? 'Startseite + Uhr' : 'ausgeblendet'}
+                                </small>
+                            </span>
+                        </button>
+                    ) : null}
                     <button
                         type="button"
                         className="zh-btn"
@@ -384,10 +476,11 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
                         disabled={!c.online || c.pending}
                         onClick={() => {
                             touch();
-                            p.onSwitch(i, !c.on);
+                            p.onSwitch(c.idx, !c.on);
                         }}
                         style={btn(c.on, {
                             width: 104,
+                            height: 42,
                             opacity: c.online ? 1 : 0.38,
                             ...(c.unconfirmed ? { border: `2px solid ${v('warn-bd')}` } : null),
                         })}
@@ -479,7 +572,7 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
                                 type="button"
                                 className="zh-btn"
                                 aria-label="Löschen"
-                                onClick={() => p.onSave(sel, removeEntry(k.plan, day, i))}
+                                onClick={() => p.onSave(k.idx, removeEntry(k.plan, day, i))}
                                 style={btn(false, { fontSize: 17, color: '#ff9b9b' })}
                             >
                                 🗑
@@ -739,12 +832,12 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
                 style={{ display: 'flex', flexDirection: 'column', marginTop: -8 }}
             >
                 {rows}
-                <div style={{ height: 1, background: v('border'), margin: '9px 0 8px' }} />
+                <div style={{ height: 1, background: v('border'), margin: '6px 0 5px' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
                         Zeitschaltuhr
                         <small style={{ color: v('text-2'), fontWeight: 500, marginLeft: 6 }}>
-                            {k.name} · {DAY_NAMES[day]}
+                            {DAY_NAMES[day]}
                             {k.planPending ? ' · wird gespeichert …' : ''}
                         </small>
                     </span>
@@ -786,13 +879,44 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
                                     kreis={c.key}
                                     size={15}
                                 />
-                                {c.name}
+                                {c.short}
                             </button>
                         ))}
                     </span>
                 </div>
                 <div style={{ position: 'relative', height: 221 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginTop: 8 }}>
+                    {resting && !edit ? (
+                        <span
+                            className="zh-wn-in"
+                            style={{
+                                position: 'absolute',
+                                left: '50%',
+                                top: 92,
+                                transform: 'translateX(-50%)',
+                                zIndex: 4,
+                                background: '#3a382f',
+                                border: '1px solid #6b5a2c',
+                                color: '#ffd98a',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                padding: '7px 12px',
+                                borderRadius: 10,
+                                whiteSpace: 'nowrap',
+                                pointerEvents: 'none',
+                            }}
+                        >
+                            Zeitschaltuhr ruht · Saison beim {k.name} einschalten
+                        </span>
+                    ) : null}
+                    <div
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(7, 1fr)',
+                            gap: 6,
+                            marginTop: 8,
+                            ...restStyle,
+                        }}
+                    >
                         {DAYS.map((name, i) => (
                             <button
                                 key={name}
@@ -842,13 +966,15 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
                             </button>
                         ))}
                     </div>
-                    <DayBar
-                        key={`${sel}-${day}`}
-                        list={list}
-                        sunset={sun}
-                        nowMin={day === today ? nowMin : null}
-                    />
-                    {listView}
+                    <div style={restStyle}>
+                        <DayBar
+                            key={`${sel}-${day}`}
+                            list={list}
+                            sunset={sun}
+                            nowMin={day === today ? nowMin : null}
+                        />
+                        {listView}
+                    </div>
                     {editor}
                 </div>
             </div>

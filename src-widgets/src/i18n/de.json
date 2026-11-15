@@ -274,5 +274,7 @@
     "weihnacht_stern": "Schalter Stern",
     "weihnacht_rentier": "Schalter Rentier",
     "weihnacht_lichterkette": "Schalter Lichterkette",
+    "weihnacht_baum": "Schalter Baum",
+    "weihnacht_baum_tip": "Leer lassen, wenn es keinen Baum gibt. Saison-Schalter im Popup: blendet den Baum ein und aktiviert seine Laufzeiten",
     "weihnacht_name": "Name auf der Kachel"
 }

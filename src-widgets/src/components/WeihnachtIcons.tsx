@@ -1,5 +1,5 @@
 /*
- * Icons of the Christmas lights: star, reindeer, fairy lights (34 x 30, line style of the other tiles).
+ * Icons of the Christmas lights: star, reindeer, fairy lights, tree (34 x 30, line style of the other tiles).
  * "on" fills them and starts the animations (twinkle, nod, blinking bulbs).
  */
 import React from 'react';
@@ -31,6 +31,8 @@ export const WEIHNACHT_CSS = `
 .zh-wn-on .zh-wn-bulb:nth-of-type(2n){animation-delay:.6s}.zh-wn-on .zh-wn-bulb:nth-of-type(3n){animation-delay:1.2s}
 .zh-wn-on .zh-wn-head{transform-box:view-box;transform-origin:22px 15px;animation:zh-wn-nod 3.2s ease-in-out infinite}
 .zh-wn-on .zh-wn-nose{animation:zh-wn-bulb 1.6s ease-in-out infinite}
+.zh-wn-on .zh-wn-ball{animation:zh-wn-bulb 1.5s ease-in-out infinite}.zh-wn-on .zh-wn-ball2{animation-delay:.5s}.zh-wn-on .zh-wn-ball3{animation-delay:1s}
+.zh-wn-on .zh-wn-top{transform-box:fill-box;transform-origin:center;animation:zh-wn-twinkle 2.4s ease-in-out infinite}
 .zh-wn-layer{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
  opacity:0;transform:translateY(8px) scale(.94);transition:opacity .55s ease,transform .55s ease;pointer-events:none}
 .zh-wn-layer.zh-wn-show{opacity:1;transform:none}
@@ -38,9 +40,9 @@ export const WEIHNACHT_CSS = `
 .zh-wn-pause .zh-wn-dot-a{animation:zh-wn-dot 1s infinite}
 .zh-wn-in{animation:zh-wn-in .3s ease}
 .zh-wn-grow{transform-origin:left;animation:zh-wn-grow .6s ease}
-.zh-wn-still .zh-wn-tw,.zh-wn-still .zh-wn-bulb,.zh-wn-still .zh-wn-head,.zh-wn-still .zh-wn-nose{animation:none!important}
+.zh-wn-still .zh-wn-tw,.zh-wn-still .zh-wn-bulb,.zh-wn-still .zh-wn-head,.zh-wn-still .zh-wn-nose,.zh-wn-still .zh-wn-ball,.zh-wn-still .zh-wn-top{animation:none!important}
 .zh-wn-still .zh-wn-layer{transition:none}
-@media (prefers-reduced-motion:reduce){.zh-wn-tw,.zh-wn-bulb,.zh-wn-head,.zh-wn-nose{animation:none!important}.zh-wn-layer{transition:none}}
+@media (prefers-reduced-motion:reduce){.zh-wn-tw,.zh-wn-bulb,.zh-wn-head,.zh-wn-nose,.zh-wn-ball,.zh-wn-top{animation:none!important}.zh-wn-layer{transition:none}}
 `;
 
 const STYLE_ID = 'zh-weihnacht-styles';
@@ -125,6 +127,42 @@ export function KreisIcon({
             </svg>
         );
     }
+    if (kreis === 'baum') {
+        const balls: [number, number, string, string][] = [
+            [14.6, 14.6, '#d8432f', ''],
+            [20.4, 19.8, '#ffe08a', ' zh-wn-ball2'],
+            [12.2, 21.6, '#fff4c2', ' zh-wn-ball3'],
+        ];
+        return (
+            <svg
+                {...svgProps(size)}
+                strokeWidth={1.8}
+            >
+                <path
+                    d="M17 4.5l-6 7h3.2l-5.6 6.5h3.6L6 25h22l-6.2-7h3.6l-5.6-6.5H23z"
+                    fill={on ? 'rgba(255,255,255,.35)' : 'none'}
+                />
+                <path d="M15 25v3.2h4V25" />
+                <path
+                    className="zh-wn-top"
+                    d="M17 .6l.9 1.9 2 .3-1.5 1.4.4 2L17 5.2l-1.8 1 .4-2-1.5-1.4 2-.3z"
+                    fill={on ? '#ffe08a' : 'none'}
+                    strokeWidth={1.1}
+                />
+                {balls.map(([cx, cy, color, cls]) => (
+                    <circle
+                        key={cx}
+                        className={`zh-wn-ball${cls}`}
+                        cx={cx}
+                        cy={cy}
+                        r={1.4}
+                        fill={on ? color : 'currentColor'}
+                        stroke="none"
+                    />
+                ))}
+            </svg>
+        );
+    }
     return (
         <svg
             {...svgProps(size)}
@@ -156,6 +194,23 @@ export function MiniIcon({ kreis, size = 13 }: { kreis: KreisKey; size?: number 
             <svg {...common}>
                 <path
                     d="M8 1.2l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.4l-4 2.1.8-4.5L1.5 5.9 6 5.3z"
+                    fill="currentColor"
+                />
+            </svg>
+        );
+    }
+    if (kreis === 'baum') {
+        return (
+            <svg {...common}>
+                <path
+                    d="M8 .8l-3.6 4.4h2L3.2 9.4h2.3L2.4 13.6h11.2l-3.1-4.2h2.3L9.6 5.2h2z"
+                    fill="currentColor"
+                />
+                <rect
+                    x={7}
+                    y={13.4}
+                    width={2}
+                    height={2.2}
                     fill="currentColor"
                 />
             </svg>
