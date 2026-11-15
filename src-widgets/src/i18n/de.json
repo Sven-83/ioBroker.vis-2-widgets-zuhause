@@ -267,5 +267,12 @@
     "system_label": "ioBroker-Status",
     "system_base": "Datenpunkte des Wächters",
     "system_base_tip": "Ordner des Wächter-Skripts, z. B. 0_userdata.0.system.iobrokerStatus",
-    "system_name": "Name auf der Kachel"
+    "system_name": "Name auf der Kachel",
+    "weihnacht_label": "Weihnachtsbeleuchtung",
+    "weihnacht_base": "Datenpunkte des Skripts",
+    "weihnacht_base_tip": "Ordner des Skripts weihnachten, z. B. 0_userdata.0.weihnachten",
+    "weihnacht_stern": "Schalter Stern",
+    "weihnacht_rentier": "Schalter Rentier",
+    "weihnacht_lichterkette": "Schalter Lichterkette",
+    "weihnacht_name": "Name auf der Kachel"
 }

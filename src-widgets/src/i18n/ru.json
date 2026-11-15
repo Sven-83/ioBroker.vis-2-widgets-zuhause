@@ -267,5 +267,12 @@
     "system_label": "ioBroker status",
     "system_base": "Watcher data points",
     "system_base_tip": "Folder of the watcher script, e.g. 0_userdata.0.system.iobrokerStatus",
-    "system_name": "Name on the tile"
+    "system_name": "Name on the tile",
+    "weihnacht_label": "Christmas lights",
+    "weihnacht_base": "Data points of the script",
+    "weihnacht_base_tip": "Folder of the script weihnachten, e.g. 0_userdata.0.weihnachten",
+    "weihnacht_stern": "Switch star",
+    "weihnacht_rentier": "Switch reindeer",
+    "weihnacht_lichterkette": "Switch fairy lights",
+    "weihnacht_name": "Name on the tile"
 }
