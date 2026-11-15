@@ -2,6 +2,8 @@
  * Popup of the ioBroker status tile: watcher state, memory / SD card / processor of the Pi,
  * filter chips and the list of all instances (state, running since, RAM, version, update, errors).
  * Updates are only shown, never installed (decision 14.11.2026).
+ * Scripts (15.11.2026): switched-on scripts in their own group, folder dimmed before the name;
+ * a script with a problem is listed under "Braucht Aufmerksamkeit". Scripts are never restarted.
  * Kept in its own file, like the star popup.
  */
 import React from 'react';
@@ -76,8 +78,11 @@ const cell: React.CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', te
 const num: React.CSSProperties = { ...cell, color: v('text-2'), fontVariantNumeric: 'tabular-nums' };
 
 function Zeile({ x, now, odd }: { x: Instanz; now: number; odd: boolean }): React.JSX.Element {
-    const m = /^(.*)(\.\d+)$/.exec(x.id);
-    const laeuft = x.en && x.mode === 'daemon' && x.alive;
+    const skript = x.mode === 'skript';
+    const m = skript ? null : /^(.*)(\.\d+)$/.exec(x.id);
+    const punkt = x.id.lastIndexOf('.');
+    const ordner = skript && punkt > 0 ? `${x.id.slice(0, punkt)}/` : '';
+    const laeuft = x.en && (x.mode === 'daemon' || skript) && x.alive;
     const bg =
         x.stufe === 'rot'
             ? 'rgba(229,72,77,.09)'
@@ -102,8 +107,12 @@ function Zeile({ x, now, odd }: { x: Instanz; now: number; odd: boolean }): Reac
                 background: bg,
             }}
         >
-            <span style={{ ...cell, fontWeight: 600 }}>
-                {m ? m[1] : x.id}
+            <span
+                style={{ ...cell, fontWeight: 600 }}
+                title={skript ? `script.js.${x.id}` : undefined}
+            >
+                {skript ? <span style={{ color: MUTED, fontWeight: 500 }}>{ordner}</span> : null}
+                {skript ? x.id.slice(punkt + 1) : m ? m[1] : x.id}
                 <span style={{ color: MUTED, fontWeight: 500 }}>{m ? m[2] : ''}</span>
                 {x.eigen ? <Tag text="eigen" /> : null}
                 {x.neu ? (
@@ -197,6 +206,7 @@ export function SystemPopup(p: {
                     <Led stufe={stufe} />
                     {p.steht ? 'Wächter meldet sich nicht' : 'Wächter aktiv'} · letzte Prüfung {pruef}
                     {p.host?.name ? ` · ${p.host.name}` : ''} · {n.alle} Instanzen
+                    {n.skripte ? ` · ${n.skripte} Skripte` : ''}
                 </div>
 
                 {ms.length ? (
@@ -322,7 +332,7 @@ export function SystemPopup(p: {
                         borderBottom: `1px solid ${v('border')}`,
                     }}
                 >
-                    <span>Adapter</span>
+                    <span>Name</span>
                     <span>Zustand</span>
                     <span>seit</span>
                     <span>RAM</span>

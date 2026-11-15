@@ -50,6 +50,8 @@ export interface Liste {
     ts: number;
     liste: Instanz[];
     ohneInstanz: OhneInstanz[];
+    /** switched-on scripts (mode 'skript', id without "script.js."), only shown, never restarted */
+    skripte: Instanz[];
 }
 
 export interface Host {
@@ -75,6 +77,34 @@ function str(x: unknown): string {
     return typeof x === 'string' ? x : '';
 }
 
+function zeilen(arr: unknown[]): Instanz[] {
+    return arr
+        .filter(
+            (x): x is Record<string, unknown> =>
+                !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string',
+        )
+        .map(x => {
+            const f = x.fehler as Record<string, unknown> | null | undefined;
+            const stufe = STUFEN.includes(x.stufe as Stufe) ? (x.stufe as Stufe) : 'info';
+            return {
+                id: str(x.id),
+                mode: str(x.mode) || 'none',
+                en: x.en === true,
+                alive: x.alive === true,
+                conn: typeof x.conn === 'boolean' ? x.conn : null,
+                seit: num(x.seit),
+                rss: num(x.rss),
+                ver: str(x.ver),
+                avail: str(x.avail) || null,
+                eigen: x.eigen === true,
+                neu: x.neu === true,
+                fehler: f && typeof f === 'object' && num(f.n) ? { n: num(f.n) ?? 0, letzte: str(f.letzte) } : null,
+                stufe,
+                text: str(x.text),
+            };
+        });
+}
+
 /** Reads the JSON of the state "instanzen"; broken or missing data gives an empty list */
 export function parseListe(val: unknown): Liste {
     let raw: unknown = val;
@@ -90,35 +120,12 @@ export function parseListe(val: unknown): Liste {
     const ohne = Array.isArray(o.ohneInstanz) ? o.ohneInstanz : [];
     return {
         ts: num(o.ts) ?? 0,
-        liste: liste
-            .filter(
-                (x): x is Record<string, unknown> =>
-                    !!x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string',
-            )
-            .map(x => {
-                const f = x.fehler as Record<string, unknown> | null | undefined;
-                const stufe = STUFEN.includes(x.stufe as Stufe) ? (x.stufe as Stufe) : 'info';
-                return {
-                    id: str(x.id),
-                    mode: str(x.mode) || 'none',
-                    en: x.en === true,
-                    alive: x.alive === true,
-                    conn: typeof x.conn === 'boolean' ? x.conn : null,
-                    seit: num(x.seit),
-                    rss: num(x.rss),
-                    ver: str(x.ver),
-                    avail: str(x.avail) || null,
-                    eigen: x.eigen === true,
-                    neu: x.neu === true,
-                    fehler: f && typeof f === 'object' && num(f.n) ? { n: num(f.n) ?? 0, letzte: str(f.letzte) } : null,
-                    stufe,
-                    text: str(x.text),
-                };
-            }),
+        liste: zeilen(liste),
         ohneInstanz: ohne
             .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
             .map(x => ({ id: str(x.id), ver: str(x.ver), avail: str(x.avail) }))
             .filter(x => x.id && x.avail),
+        skripte: zeilen(Array.isArray(o.skripte) ? o.skripte : []).map(x => ({ ...x, mode: 'skript' })),
     };
 }
 
@@ -202,7 +209,7 @@ export function tileView(p: {
 
 // ---------------------------------------------------------------- popup
 
-export type Filter = 'alle' | 'prob' | 'upd' | 'fehler' | 'eigen';
+export type Filter = 'alle' | 'prob' | 'upd' | 'fehler' | 'eigen' | 'skripte';
 
 export const FILTER: { key: Filter; label: string }[] = [
     { key: 'alle', label: 'Alle' },
@@ -210,18 +217,39 @@ export const FILTER: { key: Filter; label: string }[] = [
     { key: 'upd', label: 'Updates' },
     { key: 'fehler', label: 'Fehler heute' },
     { key: 'eigen', label: 'Eigene' },
+    { key: 'skripte', label: 'Skripte' },
 ];
 
+const problem = (x: Instanz): boolean => x.stufe === 'rot' || x.stufe === 'gelb';
+
+/** Filter for adapter instances (scripts: see passtSkript) */
 export function passt(x: Instanz, f: Filter): boolean {
     switch (f) {
         case 'prob':
-            return x.stufe === 'rot' || x.stufe === 'gelb';
+            return problem(x);
         case 'upd':
             return !!x.avail;
         case 'fehler':
             return !!x.fehler;
         case 'eigen':
             return x.eigen;
+        case 'skripte':
+            return false;
+        default:
+            return true;
+    }
+}
+
+/** Filter for scripts: they have no updates and are never "own adapters" */
+export function passtSkript(x: Instanz, f: Filter): boolean {
+    switch (f) {
+        case 'prob':
+            return problem(x);
+        case 'fehler':
+            return !!x.fehler;
+        case 'upd':
+        case 'eigen':
+            return false;
         default:
             return true;
     }
@@ -229,12 +257,14 @@ export function passt(x: Instanz, f: Filter): boolean {
 
 export function zaehlen(l: Liste): Record<Filter, number> {
     const n = (f: Filter): number => l.liste.filter(x => passt(x, f)).length;
+    const fehler = (a: Instanz[]): number => a.reduce((s, x) => s + (x.fehler?.n ?? 0), 0);
     return {
         alle: l.liste.length,
-        prob: n('prob'),
+        prob: n('prob') + l.skripte.filter(problem).length,
         upd: n('upd') + l.ohneInstanz.length,
-        fehler: l.liste.reduce((s, x) => s + (x.fehler?.n ?? 0), 0),
+        fehler: fehler(l.liste) + fehler(l.skripte),
         eigen: n('eigen'),
+        skripte: l.skripte.length,
     };
 }
 
@@ -243,17 +273,26 @@ export interface Gruppe {
     zeilen: Instanz[];
 }
 
-/** Problems first, then running, then without own process, then switched off */
+/**
+ * Problems first (instances and scripts), then running, then without own process, then switched off,
+ * then the running scripts. A script with a problem sits at the top, it does not hide at the bottom.
+ */
 export function gruppen(l: Liste, f: Filter): Gruppe[] {
+    const skripte = l.skripte.filter(x => passtSkript(x, f));
     const g: [string, (x: Instanz) => boolean][] = [
-        ['Braucht Aufmerksamkeit', x => x.stufe === 'rot' || x.stufe === 'gelb'],
         ['Läuft', x => x.stufe === 'ok'],
         ['Ohne eigenen Prozess', x => x.stufe === 'info'],
         ['Abgeschaltet – wird nicht überwacht', x => x.stufe === 'aus'],
     ];
-    return g
-        .map(([titel, test]) => ({ titel, zeilen: l.liste.filter(x => test(x) && passt(x, f)) }))
-        .filter(x => x.zeilen.length);
+    const out: Gruppe[] = [
+        {
+            titel: 'Braucht Aufmerksamkeit',
+            zeilen: [...l.liste.filter(x => problem(x) && passt(x, f)), ...skripte.filter(problem)],
+        },
+        ...g.map(([titel, test]) => ({ titel, zeilen: l.liste.filter(x => test(x) && passt(x, f)) })),
+        { titel: 'Skripte – nur angezeigt, kein Neustart', zeilen: skripte.filter(x => !problem(x)) },
+    ];
+    return out.filter(x => x.zeilen.length);
 }
 
 /** "läuft seit": minutes, hours or days */

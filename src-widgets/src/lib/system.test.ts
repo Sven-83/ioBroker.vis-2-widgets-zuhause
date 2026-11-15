@@ -9,6 +9,7 @@ import {
     parseHost,
     parseListe,
     passt,
+    passtSkript,
     seitText,
     STILL_MS,
     tileView,
@@ -152,7 +153,7 @@ describe('parseListe', () => {
         assert.equal(l.liste[1].conn, null);
     });
     it('survives broken data', () => {
-        assert.deepEqual(parseListe('{kaputt'), { ts: 0, liste: [], ohneInstanz: [] });
+        assert.deepEqual(parseListe('{kaputt'), { ts: 0, liste: [], ohneInstanz: [], skripte: [] });
         assert.deepEqual(parseListe(null).liste, []);
         assert.equal(parseListe({ liste: [{ id: 'x.0', stufe: 'quatsch' }, 7, null] }).liste[0].stufe, 'info');
     });
@@ -207,7 +208,7 @@ describe('tileView', () => {
 describe('popup list', () => {
     const l = parseListe(PI_JSON);
     it('counts per filter, updates include adapters without instance', () => {
-        assert.deepEqual(zaehlen(l), { alle: 6, prob: 0, upd: 2, fehler: 2, eigen: 1 });
+        assert.deepEqual(zaehlen(l), { alle: 6, prob: 0, upd: 2, fehler: 2, eigen: 1, skripte: 0 });
     });
     it('groups in the order problems, running, without process, off', () => {
         const withProblem = { ...l, liste: [...l.liste, inst({ id: 'tuya.0', stufe: 'rot', conn: false })] };
@@ -236,6 +237,78 @@ describe('popup list', () => {
         assert.equal(seitText(NOW - 2 * 3_600_000, NOW), '2 h');
         assert.equal(seitText(NOW - 26 * 3_600_000, NOW), '1 Tag');
         assert.equal(seitText(1793569913037, NOW), '13 Tage');
+    });
+});
+
+describe('scripts (15.11.2026)', () => {
+    // shape as written by the watcher (probe 15.11.2026)
+    const json = JSON.parse(PI_JSON) as Record<string, unknown>;
+    json.skripte = [
+        {
+            id: 'vis2.weihnachten',
+            mode: 'skript',
+            en: true,
+            alive: true,
+            conn: null,
+            seit: NOW - 7_200_000,
+            rss: null,
+            ver: '',
+            avail: null,
+            eigen: false,
+            neu: false,
+            fehler: { n: 1, letzte: '14:20 eigener Fehlertext' },
+            stufe: 'ok',
+            text: 'läuft',
+        },
+        {
+            id: 'Feueralarm.Flucht',
+            mode: 'skript',
+            en: true,
+            alive: false,
+            seit: null,
+            fehler: null,
+            stufe: 'rot',
+            text: 'gestoppt · gemeldet',
+        },
+        { id: 'vis2.neu', alive: true, neu: true, stufe: 'ok', text: 'läuft' },
+    ];
+    const l = parseListe(JSON.stringify(json));
+
+    it('reads the scripts, always as mode skript', () => {
+        assert.equal(l.skripte.length, 3);
+        assert.equal(l.skripte[2].mode, 'skript');
+        assert.equal(l.skripte[1].stufe, 'rot');
+        assert.equal(l.liste.length, 6, 'scripts are not instances');
+    });
+    it('counts: problems and errors include scripts, updates and own do not', () => {
+        assert.deepEqual(zaehlen(l), { alle: 6, prob: 1, upd: 2, fehler: 3, eigen: 1, skripte: 3 });
+    });
+    it('a script with a problem is listed at the top, the others in their own group at the end', () => {
+        const g = gruppen(l, 'alle');
+        assert.deepEqual(
+            g.map(x => [x.titel, x.zeilen.length]),
+            [
+                ['Braucht Aufmerksamkeit', 1],
+                ['Läuft', 4],
+                ['Ohne eigenen Prozess', 1],
+                ['Abgeschaltet – wird nicht überwacht', 1],
+                ['Skripte – nur angezeigt, kein Neustart', 2],
+            ],
+        );
+        assert.equal(g[0].zeilen[0].id, 'Feueralarm.Flucht');
+    });
+    it('filter Skripte shows only scripts, Updates and Eigene none', () => {
+        assert.deepEqual(
+            gruppen(l, 'skripte').map(x => x.zeilen.map(z => z.id)),
+            [['Feueralarm.Flucht'], ['vis2.weihnachten', 'vis2.neu']],
+        );
+        assert.deepEqual(
+            gruppen(l, 'fehler').flatMap(x => x.zeilen.map(z => z.id)),
+            ['broadlink2.0', 'vis2.weihnachten'],
+        );
+        assert.equal(passtSkript(l.skripte[0], 'upd'), false);
+        assert.equal(passtSkript(l.skripte[0], 'eigen'), false);
+        assert.equal(passt(inst({ id: 'a.0' }), 'skripte'), false);
     });
 });
 
