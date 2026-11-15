@@ -22,6 +22,7 @@ import {
     boldParts,
     awayLine,
     awayYear,
+    segmentLines,
     chargedPeriods,
     costMonths,
     homePrice,
@@ -163,13 +164,7 @@ const EASEE_DP = [
 type EaseeDp = (typeof EASEE_DP)[number];
 
 /** charging on the road from the receipts (mobility adapter, away.*) */
-const AWAY_DP = [
-    'history.days',
-    'history.months',
-    'history.yearEnergy',
-    'history.yearCost',
-    'history.sessionCount',
-] as const;
+const AWAY_DP = ['history.days', 'history.months', 'history.yearEnergy', 'history.yearCost'] as const;
 type AwayDp = (typeof AWAY_DP)[number];
 
 const EV = '#6fe08a';
@@ -322,7 +317,9 @@ const CSS = `
 .za-zaehler{display:flex;align-items:center;gap:8px;border-top:1px solid var(--border,#36363b);margin-top:4px;padding-top:7px;font-size:11px;color:var(--text-2,#a3a19a)}
 .za-zaehler b{margin-left:auto;color:var(--text,#ece9e1);font-family:${fonts.numbers};font-weight:600;font-size:13px;white-space:nowrap}
 .za-balken .w,.za-monate .m{cursor:pointer;-webkit-tap-highlight-color:transparent}
-.za-balken .w.gewaehlt>div,.za-monate .m.gewaehlt>div{filter:brightness(1.25);box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.za-balken .w.gewaehlt>div,.za-monate .m.gewaehlt>div,.za-balken .w>div.gewaehlt{filter:brightness(1.25);box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.za-balken .w .away{min-height:4px}
+.za-balken .w>span.wert{position:absolute;left:-4px;right:-4px;text-align:center;font-size:9.5px;color:var(--text-2,#a3a19a);white-space:nowrap;font-family:${fonts.numbers};pointer-events:none;animation:za-auf .3s ease-out 1s both}
 .za-bubble{position:absolute;left:50%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 9px;border-radius:9px;background:#3b3b42;border:1px solid #5a5a62;color:var(--text,#ece9e1);font-size:11px;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.45);pointer-events:none;animation:za-auf .18s ease-out}
 .za-bubble>span:first-child{font-size:10px;color:var(--text-2,#a3a19a)}
 .za-bubble>span:nth-child(2){font-family:${fonts.numbers};font-weight:600;font-size:14px}
@@ -1523,25 +1520,23 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
     private periods(tab: Tab): {
         easee: EaseePeriod[];
         ford: FordWeek[];
-        away: EaseePeriod[] | null;
+        away: EaseePeriod[];
         current: string;
     } {
         const now = new Date(this.state.zaNow);
         const p2 = (n: number): string => String(n).padStart(2, '0');
-        // receipts replace the estimate once there is at least one
-        const receipts = (num(this.a('history.sessionCount')) ?? 0) > 0;
         if (tab === 'woche') {
             return {
                 easee: parseEasee(this.e('history.days')).slice(-7),
                 ford: parseFordWeeks(this.v('history.days')),
-                away: receipts ? parseEasee(this.a('history.days')) : null,
+                away: parseEasee(this.a('history.days')),
                 current: `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())}`,
             };
         }
         return {
             easee: costMonths(parseEasee(this.e('history.months')), 12),
             ford: parseFordWeeks(this.v('history.months')),
-            away: receipts ? parseEasee(this.a('history.months')) : null,
+            away: parseEasee(this.a('history.months')),
             current: `${now.getFullYear()}-${p2(now.getMonth() + 1)}`,
         };
     }
@@ -1585,12 +1580,12 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
     }
 
     private renderCharged(tab: Tab, lang: string, motion: boolean): React.JSX.Element {
-        const { easee, ford, away: receipts } = this.periods(tab);
-        const list = chargedPeriods(easee, ford, easee.length, receipts);
+        const { easee, away: road } = this.periods(tab);
+        const list = chargedPeriods(easee, road, easee.length);
         const home = list.reduce((a, w) => a + w.home, 0);
-        const away = list.reduce((a, w) => a + (w.away ?? 0), 0);
-        const awayKnown = list.some(w => w.away !== null);
-        const max = Math.max(tab === 'woche' ? 10 : 50, ...list.map(w => w.home + (w.away ?? 0)));
+        const away = list.reduce((a, w) => a + w.away, 0);
+        // 15 % headroom for the total above the highest bar
+        const max = Math.max(tab === 'woche' ? 10 : 50, ...list.map(w => w.home + w.away)) * 1.15;
         const grow = this.state.zaShown || !motion;
         const range = tab === 'woche' ? 'in 7 Tagen' : list.length ? `seit ${monthLabel(list[0].period)}` : '';
         return (
@@ -1603,7 +1598,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                     {formatNumber(home + away, 0, lang)}{' '}
                     <small>
                         kWh {range}
-                        {awayKnown ? ` · ${formatNumber(away, 0, lang)} davon unterwegs` : ''}
+                        {away > 0 ? ` · ${formatNumber(away, 0, lang)} davon unterwegs` : ''}
                     </small>
                 </div>
                 {list.length ? (
@@ -1629,24 +1624,51 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                                               ],
                                               i,
                                               list.length,
-                                              ((w.home + (w.away ?? 0)) / max) * 100,
+                                              ((w.home + w.away) / max) * 100,
+                                          )
+                                        : null}
+                                    {this.state.zaPick === `g:${w.period}:home`
+                                        ? bubble(segmentLines(w, 'home', lang), i, list.length, (w.home / max) * 100)
+                                        : null}
+                                    {this.state.zaPick === `g:${w.period}:away`
+                                        ? bubble(
+                                              segmentLines(w, 'away', lang),
+                                              i,
+                                              list.length,
+                                              ((w.home + w.away) / max) * 100,
                                           )
                                         : null}
                                     <div
-                                        className="home"
+                                        className={`home${this.state.zaPick === `g:${w.period}:home` ? ' gewaehlt' : ''}`}
                                         style={{
                                             height: `${grow ? (w.home / max) * 100 : 0}%`,
                                             transitionDelay: delay,
                                         }}
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            this.pick(`g:${w.period}:home`);
+                                        }}
                                     />
                                     {w.away ? (
                                         <div
-                                            className="away"
+                                            className={`away${this.state.zaPick === `g:${w.period}:away` ? ' gewaehlt' : ''}`}
                                             style={{
                                                 height: `${grow ? (w.away / max) * 100 : 0}%`,
                                                 transitionDelay: delay,
                                             }}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                this.pick(`g:${w.period}:away`);
+                                            }}
                                         />
+                                    ) : null}
+                                    {grow && w.home + w.away > 0 && !this.state.zaPick?.startsWith(`g:${w.period}`) ? (
+                                        <span
+                                            className="wert"
+                                            style={{ bottom: `calc(${((w.home + w.away) / max) * 100}% + 2px)` }}
+                                        >
+                                            {formatNumber(w.home + w.away, 0, lang)}
+                                        </span>
                                     ) : null}
                                     <label>{w.label}</label>
                                 </div>
@@ -1663,7 +1685,7 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
                     </span>
                     <span>
                         <i style={{ background: AWAY }} />
-                        unterwegs{receipts ? ' (Belege)' : awayKnown ? ' (geschätzt)' : ' (sammelt noch)'}
+                        unterwegs (Belege)
                     </span>
                 </div>
             </div>

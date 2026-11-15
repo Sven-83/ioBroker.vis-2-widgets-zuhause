@@ -5,12 +5,12 @@ import {
     bar,
     awayLine,
     awayYear,
+    segmentLines,
     chargedPeriods,
     costMonths,
     homePrice,
     monthLabel,
     parseEasee,
-    parseFordWeeks,
     plugText,
     yearLabel,
     boldParts,
@@ -196,50 +196,39 @@ describe('autoseite', () => {
                 { period: '2026-W46', sessions: 2, kwh: 54.3, cost: 19.56 },
             ]),
         );
-        const ford = parseFordWeeks(
-            JSON.stringify([
-                { period: '2026-W44', km: 0, kwhPer100: null, kwhCharged: 0, temp: null },
-                { period: '2026-W45', km: 0, kwhPer100: null, kwhCharged: 0, temp: null },
-                { period: '2026-W46', km: 21, kwhPer100: 19, kwhCharged: 70, temp: 4.8 },
-            ]),
-        );
-        it('charged: home from the wallbox, away only where Ford recorded', () =>
-            assert.deepEqual(chargedPeriods(easee, ford, 8), [
-                { period: '2026-W44', label: '44', home: 37, away: null, awayCost: null, cost: 13.32 },
-                { period: '2026-W45', label: '45', home: 79.2, away: null, awayCost: null, cost: 28.5 },
-                { period: '2026-W46', label: '46', home: 54.3, away: 70 - 54.3, awayCost: null, cost: 19.56 },
-            ]));
-        it('charged: on the road from the receipts once there are some', () => {
+        it('charged: home from the wallbox, on the road only from receipts (no estimate)', () => {
             const away = parseEasee(JSON.stringify([{ period: '2026-W45', sessions: 2, kwh: 41.1, cost: 22.02 }]));
-            const list = chargedPeriods(easee, ford, 8, away);
+            assert.deepEqual(chargedPeriods(easee, away, 8), [
+                { period: '2026-W44', label: '44', home: 37, cost: 13.32, away: 0, awayCost: 0 },
+                { period: '2026-W45', label: '45', home: 79.2, cost: 28.5, away: 41.1, awayCost: 22.02 },
+                { period: '2026-W46', label: '46', home: 54.3, cost: 19.56, away: 0, awayCost: 0 },
+            ]);
             assert.deepEqual(
-                list.map(w => [w.period, w.away, w.awayCost]),
-                [
-                    ['2026-W44', 0, 0],
-                    ['2026-W45', 41.1, 22.02],
-                    ['2026-W46', 0, 0],
-                ],
+                chargedPeriods(easee, [], 2).map(w => w.away),
+                [0, 0],
             );
         });
         it('bubble line on the road, also with costs only', () => {
             const base = { period: '2026-10', label: 'Okt', home: 10, cost: 3 };
             assert.equal(awayLine({ ...base, away: 41.1, awayCost: 22.02 }), '+ 41,1 kWh · 22,02 € unterwegs');
             assert.equal(awayLine({ ...base, away: 0, awayCost: 11.99 }), '+ 11,99 € unterwegs');
-            assert.equal(awayLine({ ...base, away: 15.7, awayCost: null }), '+ 15,7 kWh unterwegs');
+            assert.equal(awayLine({ ...base, away: 14, awayCost: 0 }), '+ 14,0 kWh unterwegs');
             assert.equal(awayLine({ ...base, away: 0, awayCost: 0 }), null);
-            assert.equal(awayLine({ ...base, away: null, awayCost: null }), null);
+        });
+        it('bubble of the green or blue part of a bar', () => {
+            const w = { period: '2026-10', label: 'Okt', home: 120.4, cost: 43.34, away: 419.1, awayCost: 201.56 };
+            assert.deepEqual(segmentLines(w, 'home'), ['Okt · zu Hause', '120,4 kWh · 43,34 €']);
+            assert.deepEqual(segmentLines(w, 'away'), ['Okt · unterwegs', '419,1 kWh · 201,56 €']);
+            assert.deepEqual(segmentLines({ ...w, away: 14, awayCost: 0 }, 'away'), [
+                'Okt · unterwegs',
+                '14,0 kWh · 0,00 €',
+            ]);
         });
         it('year line of the receipts', () => {
             assert.deepEqual(awayYear(41.1, 22.02), { kwh: 41.1, cost: 22.02 });
             assert.deepEqual(awayYear(41.1, null), { kwh: 41.1, cost: 0 });
             assert.equal(awayYear(0, 0), null);
             assert.equal(awayYear(undefined, undefined), null);
-        });
-        it('small differences are charging losses', () => {
-            const f = parseFordWeeks(
-                JSON.stringify([{ period: '2026-W46', km: 5, kwhPer100: null, kwhCharged: 56, temp: null }]),
-            );
-            assert.equal(chargedPeriods(easee, f, 8)[2].away, 0);
         });
         it('home price', () => {
             assert.ok(Math.abs((homePrice(162.43, 451.2) ?? 0) - 0.36) < 0.001);

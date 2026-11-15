@@ -391,10 +391,10 @@ export interface ChargedPeriod {
     period: string;
     label: string;
     home: number;
-    /** null = Ford had no data for that period yet (estimate) */
-    away: number | null;
-    /** amount paid on the road (receipts), null = estimate without price */
-    awayCost: number | null;
+    /** kWh on the road (receipts and typed entries) */
+    away: number;
+    /** amount paid on the road */
+    awayCost: number;
     /** costs of the wallbox sessions (at home) */
     cost: number;
 }
@@ -414,36 +414,26 @@ export function periodLabel(period: string): string {
 }
 
 /**
- * Charged energy of the last `count` periods (days, weeks or months): at home from the wallbox sessions.
- * On the road: from the charging receipts (mobility.N.away.history) once there is at least one, with the
- * amount paid. Before that an estimate = what Ford saw the battery gain minus the wallbox (only periods Ford
- * already recorded); Ford measures in the car and the wallbox at the grid, so differences below 3 kWh count
- * as charging losses.
+ * Charged energy of the last `count` periods (days, weeks or months): at home from the wallbox sessions,
+ * on the road from the receipts and typed entries (mobility.N.away.history). No estimate: without a
+ * receipt nothing was charged on the road (owner 2026-11-15).
  *
  * @param easee - Wallbox periods (easee.history.days / months)
- * @param ford - Ford periods of the same kind
+ * @param away - Periods on the road of the same kind
  * @param count - Number of periods
- * @param away - Periods of the receipts, null = no receipts (estimate)
  */
-export function chargedPeriods(
-    easee: EaseePeriod[],
-    ford: FordWeek[],
-    count: number,
-    away: EaseePeriod[] | null = null,
-): ChargedPeriod[] {
-    const fordBy = new Map(ford.map(w => [w.period, w]));
-    const awayBy = new Map((away ?? []).map(w => [w.period, w]));
-    const firstFord = ford.find(w => w.km > 0 || w.kwhCharged > 0)?.period ?? null;
+export function chargedPeriods(easee: EaseePeriod[], away: EaseePeriod[], count: number): ChargedPeriod[] {
+    const awayBy = new Map(away.map(w => [w.period, w]));
     return easee.slice(-count).map(w => {
-        const base = { period: w.period, label: periodLabel(w.period), home: w.kwh, cost: w.cost };
-        if (away) {
-            const a = awayBy.get(w.period);
-            return { ...base, away: a?.kwh ?? 0, awayCost: a?.cost ?? 0 };
-        }
-        const f = fordBy.get(w.period);
-        const recorded = firstFord !== null && f !== undefined && w.period >= firstFord;
-        const estimate = recorded ? Math.max(0, f.kwhCharged - w.kwh) : null;
-        return { ...base, away: estimate !== null && estimate < 3 ? 0 : estimate, awayCost: null };
+        const a = awayBy.get(w.period);
+        return {
+            period: w.period,
+            label: periodLabel(w.period),
+            home: w.kwh,
+            cost: w.cost,
+            away: a?.kwh ?? 0,
+            awayCost: a?.cost ?? 0,
+        };
     });
 }
 
@@ -455,16 +445,28 @@ export function chargedPeriods(
  * @returns null if nothing was charged or paid on the road
  */
 export function awayLine(w: ChargedPeriod, lang = 'de'): string | null {
-    const kwh = w.away ?? 0;
-    const cost = w.awayCost ?? 0;
-    if (kwh <= 0 && cost <= 0) {
+    if (w.away <= 0 && w.awayCost <= 0) {
         return null;
     }
     const parts = [
-        kwh > 0 ? `${formatNumber(kwh, 1, lang)} kWh` : '',
-        w.awayCost !== null && cost > 0 ? `${formatNumber(cost, 2, lang)} €` : '',
+        w.away > 0 ? `${formatNumber(w.away, 1, lang)} kWh` : '',
+        w.awayCost > 0 ? `${formatNumber(w.awayCost, 2, lang)} €` : '',
     ].filter(Boolean);
     return `+ ${parts.join(' · ')} unterwegs`;
+}
+
+/**
+ * Bubble of one part of a bar (tap on green = at home, blue = on the road).
+ *
+ * @param w - Period
+ * @param part - home or away
+ * @param lang - Language for the numbers
+ */
+export function segmentLines(w: ChargedPeriod, part: 'home' | 'away', lang = 'de'): string[] {
+    if (part === 'home') {
+        return [`${w.label} · zu Hause`, `${formatNumber(w.home, 1, lang)} kWh · ${formatNumber(w.cost, 2, lang)} €`];
+    }
+    return [`${w.label} · unterwegs`, `${formatNumber(w.away, 1, lang)} kWh · ${formatNumber(w.awayCost, 2, lang)} €`];
 }
 
 /**
