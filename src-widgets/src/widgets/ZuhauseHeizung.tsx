@@ -49,9 +49,9 @@ import { StateWatcher } from '../lib/watch';
 
 const W = 1050;
 const H = 575;
-/** drawing area of the plan inside the plan card */
-const PLAN_W = 598;
-const PLAN_H = 480;
+/** drawing area of the plan inside the plan card: right of the key figures, as high as the card allows */
+const PLAN_X = 220;
+const PLAN_W = 780;
 const IDLE_CLOSE_MS = 6000;
 const WRITE_DELAY_MS = 700;
 /** ticks of the wheel (every 0.5 °C) */
@@ -74,6 +74,8 @@ interface HeizungState extends VisRxWidgetState {
     hzPlanFehler: string;
     hzTick: number;
     hzScale: number;
+    /** page height in page pixels: 575, more when the widget box is higher than 1050 × 575 */
+    hzHoehe: number;
     /** room id, 'urlaub' or null */
     hzPopup: string | null;
     /** setpoint shown while the wheel is used (not yet confirmed by the thermostat) */
@@ -119,7 +121,7 @@ function Ic({ d, size = 18, className }: { d: string; size?: number; className?:
 const NUM = "'Zuhause Barlow Condensed','Barlow Semi Condensed','Barlow Condensed',system-ui,sans-serif";
 const STYLE_ID = 'zh-heizung-styles';
 const CSS = `
-.hz{position:relative;width:${W}px;height:${H}px;font-family:'Zuhause Barlow',Barlow,system-ui,sans-serif;color:var(--text,#ece9e1);transform-origin:top left;user-select:none;-webkit-tap-highlight-color:transparent;overflow:hidden}
+.hz{position:relative;width:${W}px;font-family:'Zuhause Barlow',Barlow,system-ui,sans-serif;color:var(--text,#ece9e1);transform-origin:top left;user-select:none;-webkit-tap-highlight-color:transparent;overflow:hidden}
 .hz *{box-sizing:border-box}
 .hz button{font-family:inherit;touch-action:manipulation;cursor:pointer}
 .hz-ic{display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -131,8 +133,8 @@ const CSS = `
 .hz-chip.heiss{background:#3a2614;border-color:#ff8a3d;color:#ffc08a}
 .hz-chip.urlaub{background:#16263a;border-color:#4a8dff;color:#a9cbff}
 button.hz-chip:active{transform:scale(.97)}
-.hz-feld{position:absolute;left:16px;top:62px;width:1018px;height:500px;background:var(--card,#2b2b2f);border:1px solid var(--border,#36363b);border-radius:var(--radius-card,18px);overflow:hidden}
-.hz-plan{position:absolute;left:309px;top:10px;width:${PLAN_W}px;height:${PLAN_H}px}
+.hz-feld{position:absolute;left:16px;top:62px;width:1018px;background:var(--card,#2b2b2f);border:1px solid var(--border,#36363b);border-radius:var(--radius-card,18px);overflow:hidden}
+.hz-plan{position:absolute;left:${PLAN_X}px;top:10px;width:${PLAN_W}px}
 .hz-plan>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .hz-raum{cursor:pointer}
 .hz-schein{transition:opacity 1.6s ease}
@@ -287,6 +289,7 @@ export default class ZuhauseHeizung extends (window.visRxWidget as typeof VisRxW
             hzPlanFehler: '',
             hzTick: 0,
             hzScale: 1,
+            hzHoehe: H,
             hzPopup: null,
             hzSoll: null,
             hzRueckkehr: null,
@@ -394,9 +397,11 @@ export default class ZuhauseHeizung extends (window.visRxWidget as typeof VisRxW
         if (!el) {
             return;
         }
+        // the width decides; a higher box makes the page higher (the plan grows), never lower than 575
         const s = Math.min(el.clientWidth / W, el.clientHeight / H);
-        if (s > 0 && Number.isFinite(s) && Math.abs(s - this.state.hzScale) > 0.001) {
-            this.setState({ hzScale: s });
+        const hoehe = s > 0 ? Math.max(H, Math.floor(el.clientHeight / s)) : H;
+        if (s > 0 && Number.isFinite(s) && (Math.abs(s - this.state.hzScale) > 0.001 || hoehe !== this.state.hzHoehe)) {
+            this.setState({ hzScale: s, hzHoehe: hoehe });
         }
     }
 
@@ -637,9 +642,10 @@ export default class ZuhauseHeizung extends (window.visRxWidget as typeof VisRxW
         }
         const vb = layers.viewBox;
         const wid = String(this.props.id);
-        const sc = Math.min(PLAN_W / vb.w, PLAN_H / vb.h);
+        const planH = this.state.hzHoehe - H + 460; // free row at the bottom for hint and legend
+        const sc = Math.min(PLAN_W / vb.w, planH / vb.h);
         const ox = (PLAN_W - vb.w * sc) / 2;
-        const oy = (PLAN_H - vb.h * sc) / 2;
+        const oy = (planH - vb.h * sc) / 2;
         const offen = this.state.hzPopup;
         const da = this.state.hzDa || !motion;
         // appearance order: top left to bottom right
@@ -649,7 +655,10 @@ export default class ZuhauseHeizung extends (window.visRxWidget as typeof VisRxW
             .map(s => s.r.id);
         const delay = (id: string): string => (motion ? `${150 + reihe.indexOf(id) * 90}ms` : '0ms');
         return (
-            <div className="hz-plan">
+            <div
+                className="hz-plan"
+                style={{ height: planH }}
+            >
                 <svg
                     viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
                     preserveAspectRatio="xMidYMid meet"
@@ -1387,7 +1396,7 @@ export default class ZuhauseHeizung extends (window.visRxWidget as typeof VisRxW
             >
                 <div
                     className="hz"
-                    style={{ transform: `scale(${this.state.hzScale})` }}
+                    style={{ transform: `scale(${this.state.hzScale})`, height: this.state.hzHoehe }}
                 >
                     <header className="hz-kopf">
                         <h1>{d.titel || 'Heizung'}</h1>
@@ -1427,7 +1436,10 @@ export default class ZuhauseHeizung extends (window.visRxWidget as typeof VisRxW
                             </button>
                         </div>
                     </header>
-                    <div className="hz-feld">
+                    <div
+                        className="hz-feld"
+                        style={{ height: this.state.hzHoehe - H + 500 }}
+                    >
                         <div className="hz-spalte">
                             <div className="hz-kz">
                                 <span>Innen Ø</span>
