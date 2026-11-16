@@ -216,6 +216,16 @@ const T = {
     sauger_lines: ['Dashed borders (JSON)', 'Gestrichelte Grenzen (JSON)'],
     sauger_lines_tip: ['Borders without a wall: [[x1,y1,x2,y2], ...]', 'Grenzen ohne Wand: [[x1,y1,x2,y2], …]'],
 
+    heizung_label: ['Heating', 'Heizung'],
+    heizung_svg_tip: ['Floor plan SVG; the rooms glow between <g id="raeume"> and the walls', 'Grundriss-SVG; die Räume leuchten zwischen <g id="raeume"> und den Wänden'],
+    heizung_rooms: ['Rooms (JSON)', 'Räume (JSON)'],
+    heizung_rooms_tip: ['[{"id":"living","name":"Living","flaechen":["living"],"thermostat":"junghome-bt-mesh.0.thermostats.0006"},{"id":"bath","name":"Bath","heizkreis":true,"ist":"zigbee2mqtt.0.x.temperature","quelle":"Zigbee sensor"}]', '[{"id":"wohnen","name":"Wohnen","flaechen":["wohnen"],"thermostat":"junghome-bt-mesh.0.thermostats.0006"},{"id":"bad","name":"Bad","heizkreis":true,"ist":"zigbee2mqtt.0.x.temperature","quelle":"Zigbee-Sensor"}]'],
+    heizung_instance: ['Adapter instance', 'Adapter-Instanz'],
+    heizung_instance_tip: ['Instance of junghome-bt-mesh with the vacation setback, e.g. junghome-bt-mesh.0', 'Instanz von junghome-bt-mesh mit der Urlaubsabsenkung, z. B. junghome-bt-mesh.0'],
+    heizung_outside: ['Outside temperature', 'Außentemperatur'],
+    heizung_outside_tip: ['Data point of the outside thermometer (header)', 'Datenpunkt des Außenthermometers (Kopfzeile)'],
+    heizung_boost_minutes: ['Boost duration (minutes)', 'Boost-Dauer (Minuten)'],
+
     panel_label: ['Floor panel', 'Etagen-Panel'],
     panel_plan: ['Floor plan widget', 'Grundriss-Widget'],
     panel_function: ['Function', 'Funktion'],

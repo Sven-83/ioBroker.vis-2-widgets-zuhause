@@ -227,6 +227,46 @@ Kachel mit Ist-Temperatur groß, Soll klein und Status. Solange der Stellantrieb
 
 Gedrückt halten öffnet die Solltemperatur: −/+ in 0,5°-Schritten und Schnellwahl. Die Schnellwahl wird als `Name:Wert` eingetragen, z. B. `Eco:19, Komfort:21.5, Bad:24`.
 
+## Heizung (Seite, JUNG HOME)
+
+Ganze Seite (1050 × 575, passt sich der Widget-Größe an) für die Fußbodenheizung mit dem Adapter
+`junghome-bt-mesh`. Die Räume des Grundrisses leuchten von der Mitte aus in der Farbe ihrer Temperatur
+(18 °C blau, 21 °C neutral, 24 °C orange); in jedem Raum sitzt ein rundes Symbol. Heizt ein Kreis, pulsiert es orange.
+
+- **Raum mit JUNG-HOME-Thermostat:** Symbol mit Ist, Soll und Bogen. Antippen öffnet das Einstellrad (ziehen
+  oder −/+ in 0,5°-Schritten, wird nach kurzer Pause einmal gesendet) und den Boost-Knopf.
+- **Raum mit Heizkreis, aber altem Thermostat:** gestricheltes Symbol „LS 990 · folgt“, nur Anzeige.
+- **Raum ohne Heizkreis:** kleines Symbol mit dem Sensorwert oder leer.
+- **Kopfzeile:** wie viele Kreise heizen, Außentemperatur, Knopf **Urlaub** (Rückkehr mit Tag und Uhrzeit oder
+  ohne Ende; zeigt, ab wann vorgeheizt wird). Läuft der Urlaub, steht „Urlaub bis …“ im Knopf; im Raum-Popup
+  lässt sich ein von Hand verstellter Raum zurück in die Absenkung holen.
+- **Linke Spalte:** Innen-Mittel, wärmster und kühlster Raum, wie viele Thermostate schon JUNG HOME sind.
+
+Felder: Grundriss-SVG (Räume als Polygone in `<g id="raeume">`), Räume (JSON), Adapter-Instanz
+(`junghome-bt-mesh.0`), Außentemperatur (Datenpunkt), Boost-Dauer (nur für die Anzeige, die Dauer stellt der Adapter).
+
+Räume (JSON), ein Eintrag je Raum:
+
+```json
+[
+    { "id": "wohnen", "name": "Wohnen", "flaechen": ["wohnen"], "thermostat": "junghome-bt-mesh.0.thermostats.0006" },
+    { "id": "bad", "name": "Bad", "flaechen": ["bad"], "heizkreis": true,
+      "ist": "zigbee2mqtt.0.….temperature", "quelle": "Zigbee-Sensor" },
+    { "id": "flur", "name": "Flur", "flaechen": ["230,0 409,0 409,330 230,330"], "mitte": [320, 62],
+      "heizkreis": true, "ist": "…", "quelle": "Rauchmelder", "decke": true }
+]
+```
+
+- `flaechen`: IDs von Raum-Polygonen der SVG **oder** eigene Punktlisten (z. B. um zwei Räume zusammenzulegen).
+- `mitte`: Mitte von Schein und Symbol, sonst die Mitte der Flächen.
+- `thermostat`: Kanal des Thermostats im Adapter; `ist` ersetzt dort die angezeigte Temperatur.
+- `heizkreis`: Raum hat einen eigenen Fußbodenkreis (ohne Thermostat = altes LS 990).
+- `quelle`, `decke`: Text im Popup („gemessen vom Rauchmelder an der Decke – vorläufig“).
+- `klein`: kleineres Symbol für schmale Räume.
+
+Echte Raumnamen und Pläne gehören nur ins VIS-Projekt, nie in dieses Repository; Beispiel:
+`docs/beispiel/heizung-raeume-demo.json` zum Demo-Plan.
+
 ## Abweichungen von der Übergabe (bewusst)
 
 - **Pins:** Sie liegen im Grundriss-Widget und werden als JSON-Liste mit Plan-Koordinaten gepflegt, nicht als einzelne Widgets zum Ziehen. Gründe:

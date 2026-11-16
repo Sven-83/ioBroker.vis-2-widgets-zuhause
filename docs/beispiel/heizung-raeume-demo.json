@@ -1,0 +1,6 @@
+[
+    { "id": "wohnen", "name": "Wohnen", "flaechen": ["wohnen"], "thermostat": "junghome-bt-mesh.0.thermostats.0006" },
+    { "id": "kueche", "name": "Küche", "flaechen": ["kueche"], "heizkreis": true, "ist": "0_userdata.0.demo.kueche", "quelle": "Zigbee-Sensor" },
+    { "id": "diele", "name": "Diele", "flaechen": ["diele"], "heizkreis": true, "ist": "0_userdata.0.demo.diele", "quelle": "Rauchmelder", "decke": true },
+    { "id": "bad", "name": "Bad", "flaechen": ["bad"], "heizkreis": true, "ist": "0_userdata.0.demo.bad", "quelle": "Zigbee-Sensor" }
+]

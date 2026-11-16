@@ -32,6 +32,7 @@ export default {
                 './ZuhauseAuto': './src/widgets/ZuhauseAuto',
                 './ZuhauseSystem': './src/widgets/ZuhauseSystem',
                 './ZuhauseWeihnacht': './src/widgets/ZuhauseWeihnacht',
+                './ZuhauseHeizung': './src/widgets/ZuhauseHeizung',
                 './translations': './src/translations',
             },
             remotes: {},
