@@ -12,6 +12,7 @@ import {
     labelPos,
     laeuft,
     modusVonCode,
+    moppWaesche,
     parseLinien,
     parseRaeume,
     pausiert,
@@ -124,6 +125,100 @@ describe('sauger', () => {
         r = ablauf(r.a, false, 'nachein', 9_000_000);
         assert.equal(r.schritt, 'ende');
         assert.deepEqual(r.a, ABLAUF_START);
+    });
+
+    it('starts the mop round on mop washing when the "done" in between does not come (2026-11-17)', () => {
+        // task status stays "segment cleaning" the whole time
+        let r = ablauf(ABLAUF_START, true, 'nachein', 0, 'Reinigung', false);
+        assert.equal(r.schritt, 'start');
+        r = ablauf(r.a, true, 'nachein', 1000, 'Reinigung', true);
+        assert.equal(r.schritt, 'weiter');
+        // emptying the dust bin alone is no change of round (can happen while vacuuming)
+        r = ablauf(r.a, true, 'nachein', 2000, 'Automatische Entleerung', true);
+        assert.equal(r.schritt, 'weiter');
+        assert.equal(r.a.runde, 1);
+        r = ablauf(r.a, true, 'nachein', 3000, 'Mopp-Reinigung', true);
+        assert.equal(r.schritt, 'runde2');
+        assert.equal(r.a.runde, 2);
+        // further washing during the mop round changes nothing
+        r = ablauf(r.a, true, 'nachein', 4000, 'Wischmopp reinigen und Wasser nachfüllen', false);
+        assert.equal(r.schritt, 'weiter');
+        assert.equal(r.a.runde, 2);
+        r = ablauf(r.a, false, 'nachein', 5000, 'Mopp-Trocknung', true);
+        assert.equal(r.schritt, 'ende');
+    });
+
+    it('does not take mop washing before the first room or in other modes as the mop round', () => {
+        let r = ablauf(ABLAUF_START, true, 'nachein', 0, 'Mopp-Reinigung', false);
+        r = ablauf(r.a, true, 'nachein', 1000, 'Mopp-Reinigung', false);
+        assert.equal(r.schritt, 'weiter');
+        r = ablauf(ABLAUF_START, true, 'beides', 0, 'Reinigung', true);
+        r = ablauf(r.a, true, 'beides', 1000, 'Mopp-Reinigung', true);
+        assert.equal(r.schritt, 'weiter');
+        assert.equal(r.a.runde, 1);
+        assert.equal(moppWaesche('Mopp-Trocknung'), false);
+        assert.equal(moppWaesche('Automatische Entleerung'), false);
+        assert.equal(moppWaesche('Wischmopp reinigen und Wasser nachfüllen'), true);
+    });
+
+    it('replays the run of 2026-11-17: kitchen and hall in both rounds', () => {
+        const order = [2, 7];
+        // [minute, task status, state, room] as reported by the adapter
+        const log: [number, string, string, number][] = [
+            [0, 'Segment-Reinigung', 'Reinigung', 5],
+            [1, 'Segment-Reinigung', 'Reinigung', 2],
+            [11, 'Segment-Reinigung', 'Reinigung', 5],
+            [12, 'Segment-Reinigung', 'Reinigung', 7],
+            [22, 'Segment-Reinigung', 'Automatische Entleerung', 5],
+            [22.5, 'Segment-Reinigung', 'Mopp-Reinigung', 5],
+            [24, 'Segment-Reinigung', 'Wischen', 5],
+            [25, 'Segment-Reinigung', 'Wischen', 2],
+            [27, 'Segment-Reinigung', 'Wischen', 4],
+            [27.5, 'Segment-Reinigung', 'Wischen', 2],
+            [33, 'Segment-Reinigung', 'Rückkehr zum Reinigen', 5],
+            [34, 'Segment-Reinigung', 'Mopp-Reinigung', 5],
+            [36, 'Segment-Reinigung', 'Wischen', 4],
+            [36.5, 'Segment-Reinigung', 'Wischen', 2],
+            [39, 'Segment-Reinigung', 'Wischen', 7],
+            [42, 'Segment-Reinigung', 'Wischen', 2],
+            [42.5, 'Segment-Reinigung', 'Wischen', 7],
+            [44, 'Segment-Reinigung', 'Wischen', 7],
+            [52, 'Abgeschlossen', 'Mopp-Reinigung', 10],
+        ];
+        let a = ABLAUF_START;
+        let fort = -1;
+        let k: Kandidat | null = null;
+        const seen: [number, number, number][] = [];
+        let vorher: [string, number] = ['', 0];
+        for (const [min, aufgabe, zustand, raum] of log) {
+            const t = min * 60_000;
+            // the page checks again with the last values once the hold time of a candidate is over
+            if (k && t >= k.seit + RAUM_HALTE_MS) {
+                ({ fort, kandidat: k } = fortschritt(order, vorher[1], vorher[0], fort, k, k.seit + RAUM_HALTE_MS));
+            }
+            const r = ablauf(a, laeuft(aufgabe), 'nachein', t, zustand, fort >= 0);
+            a = r.a;
+            if (r.schritt === 'runde2' || r.schritt === 'ende') {
+                fort = -1;
+                k = null;
+            }
+            if (laeuft(aufgabe) && r.schritt !== 'runde2') {
+                ({ fort, kandidat: k } = fortschritt(order, raum, zustand, fort, k, t));
+            }
+            vorher = [zustand, raum];
+            seen.push([min, a.runde, fort]);
+        }
+        const at = (m: number): [number, number] => {
+            const s = seen.find(([min]) => min === m)!;
+            return [s[1], s[2]];
+        };
+        assert.deepEqual(at(1), [1, 0]); // vacuum kitchen
+        assert.deepEqual(at(22), [1, 1]); // vacuum hall was reached
+        assert.deepEqual(at(22.5), [2, -1]); // mops are washed: mop round
+        assert.deepEqual(at(25), [2, 0]); // mop kitchen (before: still "hall")
+        assert.deepEqual(at(36.5), [2, 0]); // short trips do not count
+        assert.deepEqual(at(44), [2, 1]); // mop hall
+        assert.deepEqual(at(52), [1, -1]); // done
     });
 
     it('ends other jobs at once and a pause between the rounds after the limit', () => {

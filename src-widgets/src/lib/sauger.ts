@@ -330,6 +330,17 @@ export function fortschritt(
     return jetzt - k.seit >= RAUM_HALTE_MS ? { fort: i, kandidat: null } : { fort: bisher, kandidat: k };
 }
 
+/**
+ * The robot washes its mops at the base (not emptying the dust bin, which can also happen in the middle of
+ * vacuuming, and not drying the mops at the end)
+ */
+export function moppWaesche(zustand: unknown): boolean {
+    return (
+        /mopp-reinigung|wischmopp reinigen|mop clean|mop wash|wasch|wash/i.test(txt(zustand)) &&
+        !/trockn|dry/i.test(txt(zustand))
+    );
+}
+
 /** Longest pause between the vacuum and the mop round (fetch and wash mops) before the job counts as done */
 export const WECHSEL_MAX_MS = 10 * 60_000;
 
@@ -355,6 +366,8 @@ export function ablauf(
     laeuftJetzt: boolean,
     modus: Modus | null,
     jetzt: number,
+    zustand: unknown = '',
+    begonnen = false,
 ): { a: Ablauf; schritt: 'start' | 'runde2' | 'wechsel' | 'ende' | 'weiter' } {
     if (laeuftJetzt) {
         if (a.wechselSeit) {
@@ -362,6 +375,11 @@ export function ablauf(
         }
         if (!a.lief) {
             return { a: { lief: true, runde: 1, wechselSeit: 0 }, schritt: 'start' };
+        }
+        if (modus === 'nachein' && a.runde === 1 && begonnen && moppWaesche(zustand)) {
+            // the "done" between the rounds does not always come (2026-11-17): washing the mops after the
+            // vacuum round started the mop round as well
+            return { a: { lief: true, runde: 2, wechselSeit: 0 }, schritt: 'runde2' };
         }
         return { a, schritt: 'weiter' };
     }

@@ -452,7 +452,14 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         const val = this.val;
         if (ids) {
             const running = laeuft(val(ids.aufgabe));
-            const { a, schritt } = ablauf(this.lauf, running, modusVonCode(val(ids.modus)), Date.now());
+            const { a, schritt } = ablauf(
+                this.lauf,
+                running,
+                modusVonCode(val(ids.modus)),
+                Date.now(),
+                val(ids.zustand),
+                this.state.zsFort >= 0,
+            );
             this.lauf = a;
             if (schritt === 'wechsel' && !this.state.zsWechsel) {
                 // "done" after the vacuum round: the mop round follows, the page keeps the job
@@ -822,8 +829,10 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
         }
         const val = this.val;
         const e = this.einst(ids);
-        const wechsel = this.state.zsWechsel;
-        const running = laeuft(val(ids.aufgabe)) || !!this.state.zsVorbereitung || wechsel;
+        const laeuftJetzt = laeuft(val(ids.aufgabe));
+        // between the rounds: after the "done" in between, or in the mop round before the first room
+        const wechsel = this.state.zsWechsel || (laeuftJetzt && this.lauf.runde === 2 && this.state.zsFort < 0);
+        const running = laeuftJetzt || !!this.state.zsVorbereitung || wechsel;
         const paused = pausiert(val(ids.aufgabe), val(ids.zustand), val(ids.status));
         const order = this.reihenfolge(ids);
         const fort = this.state.zsFort;
