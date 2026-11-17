@@ -323,9 +323,11 @@ export function fortschritt(
     if (i <= bisher) {
         return { fort: bisher, kandidat: null };
     }
-    if (bisher < 0) {
-        return { fort: i, kandidat: null };
+    if (bisher < 0 && i === 0) {
+        return { fort: 0, kandidat: null };
     }
+    // also before the first room: on the way from the base the robot crosses later rooms of the job
+    // (2026-11-17: base → hall → bath reported the hall for a moment and the page stuck on "room 2")
     const k = kandidat?.idx === i ? kandidat : { idx: i, seit: jetzt };
     return jetzt - k.seit >= RAUM_HALTE_MS ? { fort: i, kandidat: null } : { fort: bisher, kandidat: k };
 }

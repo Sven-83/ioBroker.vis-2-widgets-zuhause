@@ -161,6 +161,27 @@ describe('sauger', () => {
         assert.equal(moppWaesche('Wischmopp reinigen und Wasser nachfüllen'), true);
     });
 
+    it('does not start with a later room the robot only crosses on the way (2026-11-17)', () => {
+        // bath (6) then hall (7); from the base the robot drives through the hall into the bath
+        const order = [6, 7];
+        let r = fortschritt(order, 5, 'Wischen', -1, null, 0);
+        assert.equal(r.fort, -1);
+        r = fortschritt(order, 7, 'Wischen', r.fort, r.kandidat, 10_000);
+        assert.equal(r.fort, -1);
+        assert.deepEqual(r.kandidat, { idx: 1, seit: 10_000 });
+        r = fortschritt(order, 6, 'Wischen', r.fort, r.kandidat, 25_000);
+        assert.deepEqual(r, { fort: 0, kandidat: null });
+        // the hall later counts after the hold time as usual
+        r = fortschritt(order, 7, 'Wischen', r.fort, r.kandidat, 300_000);
+        assert.equal(r.fort, 0);
+        r = fortschritt(order, 7, 'Wischen', r.fort, r.kandidat, 300_000 + RAUM_HALTE_MS);
+        assert.equal(r.fort, 1);
+        // if the first room is never reached, a later one still counts after the hold time
+        r = fortschritt(order, 7, 'Reinigung', -1, null, 0);
+        r = fortschritt(order, 7, 'Reinigung', r.fort, r.kandidat, RAUM_HALTE_MS);
+        assert.equal(r.fort, 1);
+    });
+
     it('replays the run of 2026-11-17: kitchen and hall in both rounds', () => {
         const order = [2, 7];
         // [minute, task status, state, room] as reported by the adapter
