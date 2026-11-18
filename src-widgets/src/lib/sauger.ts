@@ -363,8 +363,12 @@ export function moppWaesche(zustand: unknown): boolean {
     );
 }
 
-/** Longest pause between the vacuum and the mop round (fetch and wash mops) before the job counts as done */
-export const WECHSEL_MAX_MS = 10 * 60_000;
+/**
+ * Longest pause between the vacuum and the mop round (fetch and wash mops) before the job counts as done.
+ * The job runs again within about a minute (2026-11-13 ~1 min, 2026-11-18 19 s); a job that really ended
+ * there (2026-11-18: bath door closed) locked the page for the whole time, so it is kept short.
+ */
+export const WECHSEL_MAX_MS = 3 * 60_000;
 
 /** Course of a job: "nachein" (mop after vacuum) reports "done" once between the two rounds */
 export interface Ablauf {
