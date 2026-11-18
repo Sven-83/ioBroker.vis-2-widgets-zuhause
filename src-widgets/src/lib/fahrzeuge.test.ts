@@ -11,6 +11,9 @@ import {
     pendingResult,
     price,
     standText,
+    carProblemText,
+    downParts,
+    stamp,
     visibleWarnings,
     wallboxPhase,
     wallboxText,
@@ -146,6 +149,36 @@ describe('fahrzeuge', () => {
                 '11,0 kW · 3,2 kWh',
             ));
         it('waiting', () => assert.equal(wallboxText({ ...base, phase: 'warte' }), 'warte auf Wallbox …'));
+    });
+
+    it('carProblemText names the vehicle without data, null when it is fine', () => {
+        const now = new Date(2026, 10, 18, 20, 30).getTime();
+        const morning = new Date(2026, 10, 18, 8, 40).getTime();
+        assert.equal(carProblemText(true, '', morning, now), null);
+        assert.equal(carProblemText(null, null, morning, now), null);
+        assert.equal(carProblemText(false, 'login', morning, now), 'Login nötig · Stand 08:40');
+        assert.equal(carProblemText(false, 'rateLimited', null, now), 'keine Daten');
+        assert.equal(
+            carProblemText(false, 'noAnswer', new Date(2026, 10, 17, 19, 5).getTime(), now),
+            'keine Daten · Stand 17.11. 19:05',
+        );
+        assert.equal(stamp(morning, now), '08:40');
+    });
+
+    it('downParts lists parts, not vehicles', () => {
+        assert.equal(downParts(undefined), null);
+        assert.equal(downParts('kaputt'), null);
+        assert.deepEqual(downParts('[]'), []);
+        assert.deepEqual(
+            downParts(
+                JSON.stringify([
+                    { part: 'easee', since: 1 },
+                    { part: 'ford', name: 'Fiesta', problem: 'login', since: 1 },
+                    { part: 'fuel', since: 2 },
+                ]),
+            ),
+            ['Wallbox', 'Spritpreise'],
+        );
     });
 
     it('standText', () => {

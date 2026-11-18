@@ -20,6 +20,8 @@ export const VEHICLE_DP = [
     'chargeStatus',
     'timeToFull',
     'warnings',
+    'reachable',
+    'problem',
 ] as const;
 export type VehicleDp = (typeof VEHICLE_DP)[number];
 
@@ -42,6 +44,7 @@ export type ChargerDp = (typeof CHARGER_DP)[number];
 /** Data points directly below the instance */
 export const GLOBAL_DP = [
     'info.connection',
+    'info.issues',
     'easee.streamConnected',
     'fuel.cheapestStation',
     'fuel.cheapestPrice',
@@ -339,6 +342,71 @@ export function wallboxText(i: WallboxTextInput, lang = 'de'): string {
             return num(i.opMode) === OP_MODE.completed ? `${who} · fertig geladen` : `${who} steckt`;
         }
     }
+}
+
+// ---------------------------------------------------------------- parts without data (18.11.2026)
+
+/**
+ * Vehicle without data (ford.vehicleN.reachable = false): short text for its tile, null when fine.
+ * The other vehicles and the wallboxes keep showing their values.
+ *
+ * @param reachable - ford.vehicleN.reachable
+ * @param problem - ford.vehicleN.problem (login, rateLimited, noAnswer, error)
+ * @param lastUpdate - ford.vehicleN.lastUpdate (time of the shown values)
+ * @param now - Current time
+ */
+export function carProblemText(reachable: unknown, problem: unknown, lastUpdate: unknown, now: number): string | null {
+    if (reachable !== false) {
+        return null;
+    }
+    const why = text(problem) === 'login' ? 'Login nötig' : 'keine Daten';
+    const at = num(lastUpdate);
+    return at === null ? why : `${why} · Stand ${stamp(at, now)}`;
+}
+
+/** "17:54" today, otherwise "17.11. 17:54" */
+export function stamp(ts: number, now: number): string {
+    const d = new Date(ts);
+    if (d.toDateString() === new Date(now).toDateString()) {
+        return clock(ts);
+    }
+    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}. ${clock(ts)}`;
+}
+
+const PART_NAME: Record<string, string> = { fuel: 'Spritpreise', easee: 'Wallbox', ford: 'Ford' };
+
+/**
+ * Parts of the adapter without connection from info.issues (vehicles are left out - their tile says it).
+ *
+ * @param value - info.issues (JSON list)
+ * @returns names, null when the state is missing (older adapter)
+ */
+export function downParts(value: unknown): string[] | null {
+    if (typeof value !== 'string' || !value) {
+        return null;
+    }
+    let list: unknown;
+    try {
+        list = JSON.parse(value);
+    } catch {
+        return null;
+    }
+    if (!Array.isArray(list)) {
+        return null;
+    }
+    const out: string[] = [];
+    for (const item of list) {
+        const entry = (item ?? {}) as Record<string, unknown>;
+        const part = text(entry.part);
+        if (!part || text(entry.name)) {
+            continue;
+        }
+        const name = PART_NAME[part] ?? part;
+        if (!out.includes(name)) {
+            out.push(name);
+        }
+    }
+    return out;
 }
 
 // ---------------------------------------------------------------- head line

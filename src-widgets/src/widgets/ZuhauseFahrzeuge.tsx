@@ -30,6 +30,8 @@ import {
     parseWarnings,
     price,
     standText,
+    carProblemText,
+    downParts,
     text,
     visibleWarnings,
     wallboxPhase,
@@ -72,6 +74,8 @@ button.zf-auto:active{transform:scale(.97)}
 .zf-pfeil{position:absolute;right:8px;top:7px;color:var(--text-2,#a3a19a);font-size:12px}
 .zf-wert{white-space:nowrap;font-family:${fonts.numbers};font-weight:600;font-size:26px;line-height:1.05;margin-top:3px;display:flex;align-items:baseline;gap:6px}
 .zf-wert small{font-family:${fonts.text};font-weight:500;font-size:12px;color:var(--text-2,#a3a19a)}
+.zf-wert small.zf-alt{color:#ffd98a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.zf-ohne .zf-wert>span,.zf-ohne .zf-balken{opacity:.45}
 .zf-balken{height:5px;border-radius:3px;background:#3a3a40;margin-top:5px;overflow:hidden}
 .zf-balken>b{display:block;height:100%;border-radius:3px;transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
 .zf-chips{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;min-height:17px}
@@ -406,6 +410,12 @@ export default class ZuhauseFahrzeuge extends (window.visRxWidget as typeof VisR
         const full = charging
             ? fullAt(this.val(this.vid(n, 'timeToFull')), this.val(this.vid(n, 'lastUpdate')), this.state.zfNow)
             : null;
+        const problem = carProblemText(
+            this.val(this.vid(n, 'reachable')),
+            this.val(this.vid(n, 'problem')),
+            this.val(this.vid(n, 'lastUpdate')),
+            this.state.zfNow,
+        );
         const cheapest = text(this.val(this.gid('fuel.cheapestStation')));
         const cheapPrice = this.val(this.gid('fuel.cheapestPrice'));
         const clickable = !!view && !this.props.editMode;
@@ -414,6 +424,7 @@ export default class ZuhauseFahrzeuge extends (window.visRxWidget as typeof VisR
             name,
             levelText,
             range !== null ? `${formatNumber(range, 0, lang)} km` : '',
+            problem ?? '',
             ...warnings.map(w => warningText(w, lang)),
         ]
             .filter(Boolean)
@@ -441,7 +452,11 @@ export default class ZuhauseFahrzeuge extends (window.visRxWidget as typeof VisR
                         )}
                         {' %'}
                     </span>
-                    {range !== null ? <small>{formatNumber(range, 0, lang)} km</small> : null}
+                    {problem ? (
+                        <small className="zf-alt">{problem}</small>
+                    ) : range !== null ? (
+                        <small>{formatNumber(range, 0, lang)} km</small>
+                    ) : null}
                 </div>
                 <div className="zf-balken">
                     <b
@@ -468,7 +483,7 @@ export default class ZuhauseFahrzeuge extends (window.visRxWidget as typeof VisR
                 )}
             </>
         );
-        const cls = `zf-auto${charging ? ' zf-laedt' : ''}${warnings.length > 3 ? ' zf-voll' : ''}`;
+        const cls = `zf-auto${charging ? ' zf-laedt' : ''}${warnings.length > 3 ? ' zf-voll' : ''}${problem ? ' zf-ohne' : ''}`;
         return clickable ? (
             <button
                 key={`car-${n}`}
@@ -538,13 +553,19 @@ export default class ZuhauseFahrzeuge extends (window.visRxWidget as typeof VisR
         const carAt = (n: number): string => (evName && occupied.length === 1 && occupied[0] === n ? evName : '');
         const wbCharging = occupied.length === 1 && phases.get(occupied[0]) === 'laedt';
 
+        // only what does not work is marked; vehicles without data say so on their own tile
         const connected = this.val(this.gid('info.connection'));
-        const fordTs = Math.max(0, ...cars.map(n => num(this.val(this.vid(n, 'lastUpdate'))) ?? 0)) || null;
+        const down = downParts(this.val(this.gid('info.issues')));
+        const reachableCars = cars.filter(n => this.val(this.vid(n, 'reachable')) !== false);
+        const fordTs = Math.max(0, ...reachableCars.map(n => num(this.val(this.vid(n, 'lastUpdate'))) ?? 0)) || null;
         const wbTs = Math.max(0, ...boxes.map(n => num(this.val(this.cid(n, 'lastUpdate'))) ?? 0)) || null;
-        const offline = connected === false && !this.props.editMode;
-        const stand = offline
-            ? 'Adapter ohne Verbindung'
-            : standText(fordTs, this.val(this.gid('easee.streamConnected')), wbTs);
+        const oldAdapter = connected === false && down === null;
+        const offline = !this.props.editMode && (oldAdapter || (down !== null && down.length > 0));
+        const stand = !offline
+            ? standText(fordTs, this.val(this.gid('easee.streamConnected')), wbTs)
+            : oldAdapter
+              ? 'Adapter ohne Verbindung'
+              : `${down!.join(', ')} ohne Verbindung`;
         const columns = cars.length + (d.wohnmobil !== false ? 1 : 0);
 
         return (
