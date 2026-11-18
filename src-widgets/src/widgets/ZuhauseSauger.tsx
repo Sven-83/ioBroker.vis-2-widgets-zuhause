@@ -23,6 +23,7 @@ import {
     WASSER_MIN,
     WASSER_STUFEN,
     RAUM_HALTE_MS,
+    RAUM_ZURUECK_MS,
     WECHSEL_MAX_MS,
     ablauf,
     aktiveRaeume,
@@ -514,7 +515,8 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
             this.raumTimer = undefined;
         }
         if (k) {
-            this.raumTimer = setTimeout(this.onValues, Math.max(0, k.seit + RAUM_HALTE_MS - Date.now()) + 500);
+            const bis = k.zurueck === undefined ? k.seit + RAUM_HALTE_MS : k.zurueck + RAUM_ZURUECK_MS;
+            this.raumTimer = setTimeout(this.onValues, Math.max(0, bis - Date.now()) + 500);
         }
     }
 

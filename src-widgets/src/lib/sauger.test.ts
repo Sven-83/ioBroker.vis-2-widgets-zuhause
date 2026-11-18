@@ -24,6 +24,7 @@ import {
     vorbereiten,
     WECHSEL_MAX_MS,
     RAUM_HALTE_MS,
+    RAUM_ZURUECK_MS,
     type Kandidat,
     wasserStufe,
 } from './sauger';
@@ -314,6 +315,9 @@ describe('sauger', () => {
         let r = fortschritt(order, 2, 'Wischen', 0, null, t0);
         assert.equal(r.fort, 0);
         r = fortschritt(order, 7, 'Wischen', r.fort, r.kandidat, t0 + 47_000);
+        assert.deepEqual(r, { fort: 0, kandidat: { idx: 1, seit: t0, zurueck: t0 + 47_000 } });
+        // the hall for longer: the candidate goes
+        r = fortschritt(order, 7, 'Wischen', r.fort, r.kandidat, t0 + 47_000 + RAUM_ZURUECK_MS);
         assert.deepEqual(r, { fort: 0, kandidat: null });
         // to the base and back: the candidate stays as it is
         r = fortschritt(order, 2, 'Wischen', 0, null, t0 + 60_000);
@@ -325,6 +329,46 @@ describe('sauger', () => {
         // kitchen long enough
         r = fortschritt(order, 2, 'Wischen', 0, k, t0 + 60_000 + RAUM_HALTE_MS);
         assert.deepEqual(r, { fort: 1, kandidat: null });
+    });
+
+    it('keeps the next room while the adapter flips back on the border for seconds (2026-11-18)', () => {
+        // mop round dining room (4) then kitchen (2), times in seconds after 07:52:24
+        const order = [4, 2];
+        const s = (sek: number): number => sek * 1000;
+        // [second, state, room]; 07:59:50 is a guess: the change time jumped at 07:59:57 with the kitchen kept
+        const log: [number, string, number][] = [
+            [0, 'Wischen', 4],
+            [378, 'Wischen', 2], // 07:58:42
+            [446, 'Wischen', 4], // ~07:59:50
+            [453, 'Wischen', 2], // 07:59:57
+            [573, 'Wischen', 4], // 08:01:57 for 12 s
+            [585, 'Wischen', 2], // 08:02:09
+            [645, 'Rückkehr zum Reinigen', 2], // 08:03:09
+        ];
+        let fort = -1;
+        let k: Kandidat | null = null;
+        let vorher: [string, number] = ['', 0];
+        let ab = -1;
+        for (const [sek, zustand, raum] of log) {
+            // the page checks again with the last values once a timer of the candidate is over
+            if (k) {
+                const bis = k.zurueck === undefined ? k.seit + RAUM_HALTE_MS : k.zurueck + RAUM_ZURUECK_MS;
+                if (s(sek) >= bis) {
+                    ({ fort, kandidat: k } = fortschritt(order, vorher[1], vorher[0], fort, k, bis));
+                    if (fort === 1 && ab < 0) {
+                        ab = bis / 1000;
+                    }
+                }
+            }
+            ({ fort, kandidat: k } = fortschritt(order, raum, zustand, fort, k, s(sek)));
+            if (fort === 1 && ab < 0) {
+                ab = sek;
+            }
+            vorher = [zustand, raum];
+        }
+        assert.equal(fort, 1);
+        // kitchen two minutes after it was reached (08:00:42), not only at 08:06 after washing the mops
+        assert.equal(ab, 378 + RAUM_HALTE_MS / 1000);
     });
 
     it('parses the room list and labels', () => {

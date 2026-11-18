@@ -295,17 +295,26 @@ export function imRaum(zustand: unknown): boolean {
  */
 export const RAUM_HALTE_MS = 2 * 60_000;
 
+/**
+ * How long the robot must be back in an earlier room of the job before the candidate is dropped. On the
+ * border of two rooms the adapter flips between them for seconds (2026-11-18 mopping the kitchen: 12 s
+ * dining room), which used to restart the hold time again and again.
+ */
+export const RAUM_ZURUECK_MS = 60_000;
+
 /** Next room of the order the robot is in, not yet confirmed */
 export interface Kandidat {
     idx: number;
     seit: number;
+    /** since when the robot is back in an earlier room of the job */
+    zurueck?: number;
 }
 
 /**
  * Index of the current room in the order. The position based room of the adapter also reports the hall
  * on the way and the base room while fetching mops, so only rooms of the job count and never backwards.
- * The first room counts at once, every further one only after RAUM_HALTE_MS in it; going back into an
- * earlier room of the job before that drops the candidate.
+ * The first room counts at once, every further one only after RAUM_HALTE_MS in it; staying in an
+ * earlier room of the job for RAUM_ZURUECK_MS before that drops the candidate.
  */
 export function fortschritt(
     reihenfolge: number[],
@@ -321,14 +330,25 @@ export function fortschritt(
         return { fort: bisher, kandidat };
     }
     if (i <= bisher) {
-        return { fort: bisher, kandidat: null };
+        if (!kandidat) {
+            return { fort: bisher, kandidat: null };
+        }
+        if (kandidat.zurueck === undefined) {
+            return { fort: bisher, kandidat: { ...kandidat, zurueck: jetzt } };
+        }
+        return { fort: bisher, kandidat: jetzt - kandidat.zurueck >= RAUM_ZURUECK_MS ? null : kandidat };
     }
     if (bisher < 0 && i === 0) {
         return { fort: 0, kandidat: null };
     }
     // also before the first room: on the way from the base the robot crosses later rooms of the job
     // (2026-11-17: base → hall → bath reported the hall for a moment and the page stuck on "room 2")
-    const k = kandidat?.idx === i ? kandidat : { idx: i, seit: jetzt };
+    const k =
+        kandidat?.idx === i
+            ? kandidat.zurueck === undefined
+                ? kandidat
+                : { idx: i, seit: kandidat.seit }
+            : { idx: i, seit: jetzt };
     return jetzt - k.seit >= RAUM_HALTE_MS ? { fort: i, kandidat: null } : { fort: bisher, kandidat: k };
 }
 
