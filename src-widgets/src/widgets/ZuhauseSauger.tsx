@@ -24,6 +24,7 @@ import {
     WASSER_STUFEN,
     RAUM_HALTE_MS,
     RAUM_ZURUECK_MS,
+    raumZustand,
     WECHSEL_MAX_MS,
     ablauf,
     aktiveRaeume,
@@ -490,7 +491,7 @@ export default class ZuhauseSauger extends (window.visRxWidget as typeof VisRxWi
                 const { fort, kandidat } = fortschritt(
                     order,
                     val(ids.raumJetzt),
-                    val(ids.zustand),
+                    raumZustand(val(ids.zustand), val(ids.status)),
                     this.state.zsFort,
                     this.raumKandidat,
                     Date.now(),

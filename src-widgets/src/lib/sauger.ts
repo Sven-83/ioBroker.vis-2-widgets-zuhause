@@ -290,6 +290,14 @@ export function imRaum(zustand: unknown): boolean {
 }
 
 /**
+ * State for the room progress: after washing the mops the adapter can keep "Laden" while the robot is
+ * already mopping again (2026-11-18 09:20–09:27, hall for 7 min), the status then says "Segment-Reinigung"
+ */
+export function raumZustand(zustand: unknown, status: unknown): unknown {
+    return /^\s*(auf)?laden\s*$|^\s*charging\s*$/i.test(txt(zustand)) && imRaum(status) ? status : zustand;
+}
+
+/**
  * How long the robot must stay in the next room before the progress moves on. While mopping it drives
  * briefly into the next room and back (seen 2026-11-13: kitchen for under a minute, then the hall again).
  */

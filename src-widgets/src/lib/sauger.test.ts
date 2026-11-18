@@ -25,6 +25,7 @@ import {
     WECHSEL_MAX_MS,
     RAUM_HALTE_MS,
     RAUM_ZURUECK_MS,
+    raumZustand,
     type Kandidat,
     wasserStufe,
 } from './sauger';
@@ -369,6 +370,20 @@ describe('sauger', () => {
         assert.equal(fort, 1);
         // kitchen two minutes after it was reached (08:00:42), not only at 08:06 after washing the mops
         assert.equal(ab, 378 + RAUM_HALTE_MS / 1000);
+    });
+
+    it('counts a room while the adapter still says "Laden" but the status cleans (2026-11-18)', () => {
+        assert.equal(raumZustand('Laden', 'Segment-Reinigung'), 'Segment-Reinigung');
+        assert.equal(raumZustand('Laden', 'Aufladen'), 'Laden');
+        assert.equal(raumZustand('Mopp-Reinigung', 'Segment-Reinigung'), 'Mopp-Reinigung');
+        assert.equal(raumZustand('Wischen', 'Aufladen'), 'Wischen');
+        // bath (6) done, hall (7) candidate since before washing the mops, then 7 min hall with "Laden"
+        const order = [6, 7];
+        const k: Kandidat = { idx: 1, seit: 0 };
+        const z = raumZustand('Laden', 'Segment-Reinigung');
+        assert.deepEqual(fortschritt(order, 7, z, 0, k, 5 * 60_000), { fort: 1, kandidat: null });
+        // at the base the room of the station is not part of the job
+        assert.equal(fortschritt(order, 5, z, 0, k, 5 * 60_000).fort, 0);
     });
 
     it('parses the room list and labels', () => {
