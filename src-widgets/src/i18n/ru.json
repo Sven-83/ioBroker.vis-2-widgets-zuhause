@@ -211,5 +211,10 @@
     "legend_status": "Status",
     "legend_warn": "Warning",
     "legend_co2": "CO₂",
-    "legend_pin": "Off only with PIN"
+    "legend_pin": "Off only with PIN",
+    "aquarium_label": "Аквариум",
+    "aquarium_base": "Состояния скрипта",
+    "aquarium_base_tip": "Папка, в которую пишет script.js.vis2.Aquarium (laeuft, warnung, hinweis, co2, geraete)",
+    "aquarium_name": "Название",
+    "aquarium_popup_title": "Заголовок окна"
 }
