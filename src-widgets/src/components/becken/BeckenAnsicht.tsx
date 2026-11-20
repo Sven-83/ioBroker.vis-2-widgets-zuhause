@@ -82,6 +82,8 @@ interface S {
     lampTab: 'farbe' | 'zeit';
     wasserTab: 'temp' | 'kuehl';
     hand: Record<number, number>;
+    /** draft of the CO2 windows (null = no change) */
+    co2Edit: Array<[number, number]> | null;
     /** drafts of the daily dose plans (minute, ml, days) */
     planEdit: Record<number, { minute: number; ml: number; days: number }>;
     fanHand: number;
@@ -341,6 +343,7 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
         lampTab: 'farbe',
         wasserTab: 'temp',
         hand: { 1: 1, 2: 1, 3: 1 },
+        co2Edit: null,
         fanHand: 11,
         hell: 100,
         renamePump: null,
@@ -1354,18 +1357,136 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                         Über den Controller (Bluetooth), Bestätigung ca. 10 s später über die Leistung.
                     </div>
                 </div>
+                {this.co2Timer(canTimer)}
+            </>
+        );
+    }
+
+    /** CO2 timer (Sven 20.11.2026): off = always; on = up to 4 windows, 15-min steps */
+    private co2Timer(canTimer: boolean): React.ReactNode {
+        const saved = parseWindows(this.v(FUTURE.co2Schedule));
+        const timerOn = this.state.co2Edit !== null || saved.length > 0;
+        const win = this.state.co2Edit ?? (saved.length ? saved : [[600, 1200]]);
+        const edit = (w: Array<[number, number]>): void => this.setState({ co2Edit: w });
+        const set = (i: number, j: 0 | 1, d: number): void => {
+            const w = win.map(x => [...x] as [number, number]);
+            const lo = j ? w[i][0] + 15 : i ? w[i - 1][1] + 15 : 0;
+            const hi = j ? (i < w.length - 1 ? w[i + 1][0] - 15 : 1439) : w[i][1] - 15;
+            w[i][j] = Math.max(lo, Math.min(hi, w[i][j] + d));
+            edit(w);
+        };
+        const geaendert = this.state.co2Edit !== null && windowsText(win) !== windowsText(saved);
+        if (!canTimer) {
+            return (
                 <div className="box">
                     <div className="line">
                         <span>Zeitschaltuhr</span>
-                        <span className="k">
-                            {canTimer ? windowsText(parseWindows(this.v(FUTURE.co2Schedule))) : 'aus · läuft immer'}
-                        </span>
+                        <span className="k">aus · läuft immer</span>
                     </div>
-                    {!canTimer ? (
-                        <div className="hint">Zeitschaltuhr mit mehreren Fenstern kommt mit dem Adapter-Update.</div>
-                    ) : null}
+                    <div className="hint">Zeitschaltuhr kommt mit dem Adapter-Update.</div>
                 </div>
-            </>
+            );
+        }
+        return (
+            <div className="box">
+                <div className="line">
+                    <span>Zeitschaltuhr</span>
+                    <Switch
+                        on={timerOn}
+                        label="Zeitschaltuhr"
+                        onToggle={() => {
+                            if (timerOn) {
+                                this.setState({ co2Edit: null });
+                                this.set(
+                                    FUTURE.co2Schedule,
+                                    '',
+                                    'CO₂ wieder rund um die Uhr … Bestätigung über die Leistung',
+                                );
+                            } else {
+                                edit(win);
+                            }
+                        }}
+                    />
+                </div>
+                {timerOn ? (
+                    <>
+                        {win.map(([a, e], i) => (
+                            <div
+                                key={i}
+                                className="line"
+                            >
+                                <span className="k">{i + 1}.</span>
+                                <Step
+                                    value={hhmm(a)}
+                                    onMinus={() => set(i, 0, -15)}
+                                    onPlus={() => set(i, 0, 15)}
+                                />
+                                <span className="k">bis</span>
+                                <Step
+                                    value={hhmm(e)}
+                                    onMinus={() => set(i, 1, -15)}
+                                    onPlus={() => set(i, 1, 15)}
+                                />
+                                {win.length > 1 ? (
+                                    <button
+                                        type="button"
+                                        className="del"
+                                        onClick={() => edit(win.filter((_, j) => j !== i))}
+                                    >
+                                        ✕
+                                    </button>
+                                ) : null}
+                            </div>
+                        ))}
+                        <div className="line">
+                            <button
+                                type="button"
+                                className="btn"
+                                disabled={win.length >= 4 || win[win.length - 1][1] > 1380}
+                                onClick={() => {
+                                    const l = win[win.length - 1][1];
+                                    edit([...win, [l + 30, Math.min(1439, l + 90)]]);
+                                }}
+                            >
+                                + Zeitfenster
+                            </button>
+                            <button
+                                type="button"
+                                className="btn"
+                                onClick={() =>
+                                    edit(
+                                        parseWindows(this.v(IDS.schedule)).map(([a, e]): [number, number] => [
+                                            Math.max(0, a - 60),
+                                            Math.min(1439, e),
+                                        ]),
+                                    )
+                                }
+                            >
+                                wie Licht, je 1 h früher
+                            </button>
+                        </div>
+                        {geaendert || (this.state.co2Edit !== null && !saved.length) ? (
+                            <button
+                                type="button"
+                                className="btn prim"
+                                onClick={() => {
+                                    this.set(
+                                        FUTURE.co2Schedule,
+                                        windowsText(win),
+                                        'CO₂-Zeitschaltuhr gesendet … Bestätigung über die Leistung',
+                                    );
+                                    this.setState({ co2Edit: null });
+                                }}
+                            >
+                                Zeitschaltuhr speichern
+                            </button>
+                        ) : null}
+                        <div className="small">15-min-Schritte, bis 4 Fenster. Aus = CO₂ läuft rund um die Uhr.</div>
+                    </>
+                ) : (
+                    <div className="small">Aus = CO₂ läuft rund um die Uhr (Normalfall).</div>
+                )}
+            </div>
         );
     }
 
@@ -1647,6 +1768,79 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
         );
     }
 
+    /** Water temperature of the last 24 h with the alarm limits */
+    private tempKurve(tMin: number, tMax: number): React.ReactNode {
+        if (!this.has(FUTURE.tempHistory)) {
+            return <div className="hint">Temperaturkurve der letzten 24 h kommt mit dem Adapter-Update.</div>;
+        }
+        let pts: Array<[number, number]> = [];
+        try {
+            const raw = this.v(FUTURE.tempHistory);
+            const v = typeof raw === 'string' && raw ? (JSON.parse(raw) as unknown) : [];
+            pts = Array.isArray(v)
+                ? (v as Array<[number, number]>).filter(p => Array.isArray(p) && typeof p[1] === 'number')
+                : [];
+        } catch {
+            pts = [];
+        }
+        if (pts.length < 2) {
+            return <div className="small">Temperaturkurve: es werden noch Messwerte gesammelt.</div>;
+        }
+        const W = 300;
+        const H = 70;
+        const now = this.state.now;
+        const t0 = now - 24 * 3600_000;
+        const temps = pts.map(p => p[1]);
+        const lo = Math.min(tMin, ...temps) - 0.5;
+        const hi = Math.max(tMax, ...temps) + 0.5;
+        const x = (t: number): number => Math.max(0, ((t - t0) / (now - t0)) * W);
+        const y = (v: number): number => H - ((v - lo) / (hi - lo)) * H;
+        return (
+            <div className="box">
+                <div className="line">
+                    <span className="k">Letzte 24 h</span>
+                    <span className="k">
+                        {fmt(Math.min(...temps))}–{fmt(Math.max(...temps))} °C
+                    </span>
+                </div>
+                <svg
+                    viewBox={`0 0 ${W} ${H}`}
+                    style={{ width: '100%', height: 70 }}
+                >
+                    <rect
+                        x={0}
+                        y={y(tMax)}
+                        width={W}
+                        height={y(tMin) - y(tMax)}
+                        fill="rgba(111,224,138,.08)"
+                    />
+                    <line
+                        x1={0}
+                        x2={W}
+                        y1={y(tMax)}
+                        y2={y(tMax)}
+                        stroke="#e5484d"
+                        strokeDasharray="3 3"
+                    />
+                    <line
+                        x1={0}
+                        x2={W}
+                        y1={y(tMin)}
+                        y2={y(tMin)}
+                        stroke="#4aa3ff"
+                        strokeDasharray="3 3"
+                    />
+                    <polyline
+                        points={pts.map(p => `${x(p[0])},${y(p[1])}`).join(' ')}
+                        fill="none"
+                        stroke="#f2c14e"
+                        strokeWidth={2}
+                    />
+                </svg>
+            </div>
+        );
+    }
+
     private wasserBody(m: Modell): React.ReactNode {
         const tab = this.state.wasserTab;
         const tMin = this.n(IDS.tempMin) ?? 20;
@@ -1716,9 +1910,7 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                         </div>
                         <div className="small">Dauerhaft Fische (festgelegt 18.11.).</div>
                     </div>
-                    {!this.has(FUTURE.tempHistory) ? (
-                        <div className="hint">Temperaturkurve der letzten 24 h kommt mit dem Adapter-Update.</div>
-                    ) : null}
+                    {this.tempKurve(tMin, tMax)}
                 </>
             );
         }
@@ -1800,7 +1992,6 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                                         type="button"
                                         className="btn prim"
                                         onClick={() => {
-                                            this.props.set(IDS.fanAuto, false);
                                             this.set(
                                                 IDS.fanLevel,
                                                 this.state.fanHand,
