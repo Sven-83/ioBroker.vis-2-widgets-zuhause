@@ -2317,7 +2317,7 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                         <div
                             key={z.key}
                             className="line"
-                            style={{ minHeight: 28 }}
+                            style={{ minHeight: 30 }}
                         >
                             <span
                                 style={{
@@ -2328,17 +2328,29 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                                 {z.status === 'ok' ? '✓' : z.status === 'warte' ? '…' : '✕'}
                             </span>
                             <span style={{ flex: 1, fontWeight: 600, fontSize: 12.5 }}>{z.name}</span>
-                            <span className="k">
-                                {z.status === 'ok'
-                                    ? `${z.soll ? 'an' : 'aus'} · bestätigt`
-                                    : z.status === 'warte'
-                                      ? z.soll
+                            {z.status === 'fehler' || z.status === 'offline' ? (
+                                <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() =>
+                                        this.set(
+                                            PFLEGE.befehl,
+                                            `nochmal:${z.key}`,
+                                            `${z.name}: Befehl wird nochmal gesendet …`,
+                                        )
+                                    }
+                                >
+                                    nochmal {z.soll ? 'ein' : 'aus'}
+                                </button>
+                            ) : (
+                                <span className="k">
+                                    {z.status === 'ok'
+                                        ? `${z.soll ? 'an' : 'aus'} · bestätigt`
+                                        : z.soll
                                           ? 'schalte ein …'
-                                          : 'schalte aus …'
-                                      : z.status === 'offline'
-                                        ? 'offline'
-                                        : 'nicht bestätigt'}
-                            </span>
+                                          : 'schalte aus …'}
+                                </span>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -2405,6 +2417,40 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
             this.setState({ pick: pick.includes(k) ? pick.filter(x => x !== k) : [...pick, k] });
         return (
             <>
+                {parsePruefung(this.v(PFLEGE.pruefung))
+                    .filter(z => z.status !== 'ok')
+                    .map(z => (
+                        <div
+                            key={z.key}
+                            className="line"
+                        >
+                            <span
+                                style={{
+                                    color: z.status === 'warte' ? '#f2c14e' : '#e5484d',
+                                    fontWeight: 600,
+                                    fontSize: 12.5,
+                                }}
+                            >
+                                {z.status === 'warte' ? '…' : '✕'} {z.name}{' '}
+                                {z.status === 'warte' ? 'wird geprüft' : 'nicht bestätigt'}
+                            </span>
+                            {z.status !== 'warte' ? (
+                                <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() =>
+                                        this.set(
+                                            PFLEGE.befehl,
+                                            `nochmal:${z.key}`,
+                                            `${z.name}: Befehl wird nochmal gesendet …`,
+                                        )
+                                    }
+                                >
+                                    nochmal {z.soll ? 'ein' : 'aus'}
+                                </button>
+                            ) : null}
+                        </div>
+                    ))}
                 <div className="line">
                     <b style={{ fontSize: 17 }}>Was hast du gemacht?</b>
                     <span className="k">alles wieder an ✓</span>
