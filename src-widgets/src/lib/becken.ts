@@ -76,7 +76,18 @@ export const FUTURE = {
 
 export const pumpId = (n: number, name: string): string => `${P}.pump${n}.${name}`;
 /** fields of a pump bottle (phase 4 of the adapter) */
-export const PUMP_FIELDS = ['label', 'remaining', 'refillAmount', 'dailyDose', 'daysLeft', 'low', 'total'] as const;
+export const PUMP_FIELDS = [
+    'label',
+    'remaining',
+    'refillAmount',
+    'dailyDose',
+    'daysLeft',
+    'low',
+    'total',
+    'plan',
+    'planOn',
+    'planTime',
+] as const;
 /** P1 iron, P2 GH Boost, P3 NPK (P4 unused) */
 export const PUMPS = [1, 2, 3] as const;
 export const PUMP_COLOURS = ['#d0843f', '#7bd389', '#5fc4e6'] as const;
@@ -355,6 +366,108 @@ export function flasche(n: number, get: (field: (typeof PUMP_FIELDS)[number]) =>
         days: num(get('daysLeft')),
         low: get('low') === true,
     };
+}
+
+// ---------- daily dose plan (adapter 20.11.2026: on/off + time read from the pump, amount + days set by the adapter) ----------
+
+/** Weekday bits of the pump: Monday 64 ... Sunday 1 (capture 20.11.2026) */
+export const WOCHENTAGE: Array<[string, number]> = [
+    ['Mo', 64],
+    ['Di', 32],
+    ['Mi', 16],
+    ['Do', 8],
+    ['Fr', 4],
+    ['Sa', 2],
+    ['So', 1],
+];
+export const ALLE_TAGE = 127;
+
+export interface Dosierplan {
+    on: boolean;
+    /** minutes after midnight */
+    minute: number;
+    ml: number;
+    days: number;
+    /** amount and days are known (set by the adapter), not only programmed in the app */
+    bekannt: boolean;
+}
+
+/**
+ * Plan of a pump: on/off and time as reported by the pump, amount and days as last set by the adapter.
+ *
+ * @param on pumpN.planOn
+ * @param time pumpN.planTime
+ * @param raw pumpN.plan (JSON of the adapter)
+ * @param fallbackMl amount when unknown (e.g. the learnt daily dose)
+ */
+export function dosierplan(on: unknown, time: unknown, raw: unknown, fallbackMl: number): Dosierplan {
+    let own: { ml?: unknown; days?: unknown } = {};
+    try {
+        own = typeof raw === 'string' && raw ? (JSON.parse(raw) as typeof own) : {};
+    } catch {
+        own = {};
+    }
+    const m = typeof time === 'string' ? /^(\d{1,2}):(\d{2})$/.exec(time) : null;
+    const bekannt = typeof own.ml === 'number';
+    return {
+        on: on === true,
+        minute: m ? Number(m[1]) * 60 + Number(m[2]) : 0,
+        ml: bekannt ? (own.ml as number) : fallbackMl,
+        days: typeof own.days === 'number' && own.days >= 1 && own.days <= ALLE_TAGE ? own.days : ALLE_TAGE,
+        bekannt,
+    };
+}
+
+/**
+ * Short text of a weekday mask: "täglich", "Mo–Fr", "Mo, Mi, Fr".
+ *
+ * @param days bit mask
+ */
+export function tageText(days: number): string {
+    if (days === ALLE_TAGE) {
+        return 'täglich';
+    }
+    if (days === 124) {
+        return 'Mo–Fr';
+    }
+    if (days === 3) {
+        return 'Sa, So';
+    }
+    return WOCHENTAGE.filter(([, b]) => days & b)
+        .map(([n]) => n)
+        .join(', ');
+}
+
+/** Same rule as the adapter: 6 s per ml, at least 1 min, plus 1 min gap */
+export const doseMinutes = (ml: number): number => Math.max(1, Math.ceil((ml * 6) / 60)) + 1;
+
+/**
+ * Another pump whose daily dose would run at the same time (also across midnight); null = fine.
+ *
+ * @param pump the pump being set
+ * @param minute its start
+ * @param ml its amount
+ * @param andere active plans of the pumps (number, plan)
+ */
+export function ueberschneidung(
+    pump: number,
+    minute: number,
+    ml: number,
+    andere: Array<{ n: number; plan: Dosierplan }>,
+): number | null {
+    for (const o of andere) {
+        if (o.n === pump || !o.plan.on) {
+            continue;
+        }
+        const a1 = minute + doseMinutes(ml);
+        for (const shift of [-1440, 0, 1440]) {
+            const b0 = o.plan.minute + shift;
+            if (minute < b0 + doseMinutes(o.plan.ml) && b0 < a1) {
+                return o.n;
+            }
+        }
+    }
+    return null;
 }
 
 // ---------- care (phase 7: data of script.js.vis2.Aquarium; until then the defaults) ----------

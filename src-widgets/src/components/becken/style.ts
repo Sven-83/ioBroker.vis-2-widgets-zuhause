@@ -54,7 +54,7 @@ const CSS = `
 .zb .sw8{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:-1px;margin-right:6px}
 .zb .sheet{position:absolute;top:10px;right:10px;bottom:10px;width:340px;background:#202125;border:1px solid rgba(255,255,255,.12);border-radius:22px;
   padding:14px 14px 10px;display:flex;flex-direction:column;gap:8px;z-index:50;box-shadow:0 20px 60px rgba(0,0,0,.55);animation:zb-in .28s cubic-bezier(.2,.8,.2,1)}
-@keyframes zb-in{from{transform:translateX(60px);opacity:0}to{transform:none;opacity:1}}
+@keyframes zb-in{from{transform:translateX(60px)}to{transform:none}}
 .zb .sheet .sh{display:flex;align-items:center;gap:10px}
 .zb .sheet .sh h4{margin:0;font-size:18px;font-weight:600}
 .zb .sheet .sh .k{font-size:10.5px;letter-spacing:.1em;color:var(--zb-text2);font-weight:600;display:block}
@@ -114,6 +114,9 @@ const CSS = `
 .zb .sarrow:disabled{opacity:.3}
 .zb .hint{font-size:11px;color:#f2d48a;line-height:1.35}
 .zb input.name{height:30px;border-radius:8px;border:1px solid var(--zb-swbd);background:#1f2023;color:var(--zb-text);font:600 13px var(--zb-font);padding:0 8px;width:150px}
+.zb .days{display:flex;gap:4px}
+.zb .days button{flex:1;height:28px;border-radius:8px;border:1px solid var(--zb-swbd);background:var(--zb-swbg);color:var(--zb-text2);font:600 11.5px var(--zb-font);cursor:pointer;padding:0}
+.zb .days button.on{background:rgba(242,193,78,.18);border-color:var(--zb-on);color:var(--zb-text)}
 @media (prefers-reduced-motion:reduce){.zb *{animation:none!important}}
 `;
 

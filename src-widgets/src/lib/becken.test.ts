@@ -4,6 +4,8 @@ import { describe, it } from 'node:test';
 import {
     AUFGABEN,
     CURVE_DEFAULT,
+    dosierplan,
+    doseMinutes,
     faellig,
     fanLevelFor,
     flasche,
@@ -17,6 +19,8 @@ import {
     parseVorlagen,
     parseWindows,
     plugSwitch,
+    tageText,
+    ueberschneidung,
     VORLAGEN,
     vorlagenJson,
     windowsText,
@@ -127,5 +131,25 @@ describe('becken', () => {
     it('Shelly ids like the aquarium script', () => {
         assert.equal(plugSwitch('filter'), 'shelly.0.SHPLG-S#C0FDB2#1.Relay0.Switch');
         assert.equal(plugSwitch('nachfuell'), 'shelly.1.shellyplusplugs#d48afc56bd84#1.Relay0.Switch');
+    });
+
+    it('daily dose plan: pump reports on/time, the adapter keeps amount + days', () => {
+        const p2 = dosierplan(true, '14:03', '{"on":true,"time":"14:03","ml":5,"days":124}', 4);
+        assert.deepEqual(p2, { on: true, minute: 843, ml: 5, days: 124, bekannt: true });
+        const p3 = dosierplan(true, '14:00', '', 10);
+        assert.deepEqual(p3, { on: true, minute: 840, ml: 10, days: 127, bekannt: false });
+        assert.equal(dosierplan(false, '', undefined, 0).on, false);
+        assert.equal(tageText(127), 'täglich');
+        assert.equal(tageText(124), 'Mo–Fr');
+        assert.equal(tageText(64 + 16 + 4), 'Mo, Mi, Fr');
+        assert.equal(doseMinutes(10), 2);
+        // never two pumps at the same time (Sven 20.11.2026)
+        const andere = [
+            { n: 2, plan: p2 },
+            { n: 3, plan: p3 },
+        ];
+        assert.equal(ueberschneidung(1, 841, 1, andere), 3);
+        assert.equal(ueberschneidung(1, 850, 1, andere), null);
+        assert.equal(ueberschneidung(2, 843, 5, andere), null);
     });
 });

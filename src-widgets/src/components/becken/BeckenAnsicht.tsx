@@ -11,8 +11,11 @@ import { createPortal } from 'react-dom';
 
 import type { Zeile } from '../../lib/aquarium';
 import {
+    ALLE_TAGE,
     AUFGABEN,
     CURVE_DEFAULT,
+    type Dosierplan,
+    dosierplan,
     type Curve,
     faellig,
     fanLevelFor,
@@ -37,6 +40,9 @@ import {
     plugSwitch,
     pumpId,
     PUMPS,
+    tageText,
+    ueberschneidung,
+    WOCHENTAGE,
     type Vorlage,
     vorlagenJson,
     windowsText,
@@ -70,6 +76,8 @@ interface S {
     lampTab: 'farbe' | 'zeit';
     wasserTab: 'temp' | 'kuehl';
     hand: Record<number, number>;
+    /** drafts of the daily dose plans (minute, ml, days) */
+    planEdit: Record<number, { minute: number; ml: number; days: number }>;
     fanHand: number;
     hell: number;
     renamePump: number | null;
@@ -197,24 +205,68 @@ function HoldButton(p: { label: string; disabled?: boolean; onAct: () => void })
     );
 }
 
-function Step(p: { value: string; onMinus: () => void; onPlus: () => void; disabled?: boolean }): React.JSX.Element {
-    return (
-        <div className={`step ${p.disabled ? 'dis' : ''}`}>
+/** Step buttons; with "repeat" a held button keeps counting and gets faster (time in 1-min steps, Sven 20.11.2026) */
+class Step extends React.Component<{
+    value: string;
+    onMinus: () => void;
+    onPlus: () => void;
+    disabled?: boolean;
+    repeat?: boolean;
+}> {
+    private timer?: ReturnType<typeof setTimeout>;
+
+    componentWillUnmount(): void {
+        clearTimeout(this.timer);
+    }
+
+    private stop = (): void => clearTimeout(this.timer);
+
+    private start(act: () => void): void {
+        act();
+        if (!this.props.repeat) {
+            return;
+        }
+        let n = 0;
+        const next = (): void => {
+            act();
+            n++;
+            this.timer = setTimeout(next, n > 20 ? 40 : n > 8 ? 90 : 180);
+        };
+        this.timer = setTimeout(next, 450);
+    }
+
+    private btn(label: string, act: () => void): React.JSX.Element {
+        return (
             <button
                 type="button"
-                onClick={p.onMinus}
+                onPointerDown={e => {
+                    e.preventDefault();
+                    this.stop();
+                    this.start(act);
+                }}
+                onPointerUp={this.stop}
+                onPointerLeave={this.stop}
+                onPointerCancel={this.stop}
+                onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        act();
+                    }
+                }}
             >
-                −
+                {label}
             </button>
-            <b>{p.value}</b>
-            <button
-                type="button"
-                onClick={p.onPlus}
-            >
-                +
-            </button>
-        </div>
-    );
+        );
+    }
+
+    render(): React.JSX.Element {
+        return (
+            <div className={`step ${this.props.disabled ? 'dis' : ''}`}>
+                {this.btn('−', this.props.onMinus)}
+                <b>{this.props.value}</b>
+                {this.btn('+', this.props.onPlus)}
+            </div>
+        );
+    }
 }
 
 /** Up/down bar below a long sheet (Sven 20.11.2026) */
@@ -287,6 +339,7 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
         scale: 1,
         now: Date.now(),
         sel: 'ww',
+        planEdit: {},
     };
     private canvas = React.createRef<HTMLCanvasElement>();
     private back = React.createRef<SVGSVGElement>();
@@ -464,6 +517,19 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
     private set(id: string, value: ioBroker.StateValue, msg: string): void {
         this.props.set(id, value);
         this.setState({ msg });
+    }
+
+    /** daily dose plans of all pumps */
+    private plaene(): Array<{ n: number; plan: Dosierplan }> {
+        return PUMPS.map(n => ({
+            n,
+            plan: dosierplan(
+                this.v(pumpId(n, 'planOn')),
+                this.v(pumpId(n, 'planTime')),
+                this.v(pumpId(n, 'plan')),
+                this.n(pumpId(n, 'dailyDose')) || 1,
+            ),
+        }));
     }
 
     private buildModel(): Modell {
@@ -703,6 +769,31 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                             />
                         </div>
                     </div>
+                    {this.plaene().some(x => x.plan.on) ? (
+                        <div className="dl">
+                            <span>Dünger</span>
+                            <div className="day24">
+                                {this.plaene()
+                                    .filter(x => x.plan.on)
+                                    .map(x => (
+                                        <i
+                                            key={x.n}
+                                            title={`P${x.n} ${hhmm(x.plan.minute)}`}
+                                            style={{
+                                                left: pct(x.plan.minute),
+                                                width: 4,
+                                                borderRadius: 2,
+                                                background: m.pumps.find(p => p.n === x.n)?.col ?? '#ccc',
+                                            }}
+                                        />
+                                    ))}
+                                <i
+                                    className="now"
+                                    style={{ left: pct(min) }}
+                                />
+                            </div>
+                        </div>
+                    ) : null}
                     {timer ? (
                         <div className="dl">
                             <span>CO₂</span>
@@ -1357,6 +1448,7 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                                     }
                                 />
                             </div>
+                            {this.planBlock(p.n)}
                         </div>
                     );
                 })}
@@ -1378,6 +1470,128 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                         ml.
                     </div>
                 </div>
+            </>
+        );
+    }
+
+    /** newest draft minute (the repeat of a held button may run before React rendered) */
+    private planMin(n: number, fallback: number): number {
+        return this.state.planEdit[n]?.minute ?? fallback;
+    }
+
+    /** Daily dose of one pump: on/off, time, amount, weekdays; never two pumps at once (Sven 20.11.2026) */
+    private planBlock(n: number): React.ReactNode {
+        const alle = this.plaene();
+        const plan = alle.find(x => x.n === n)!.plan;
+        const d = this.state.planEdit[n] ?? { minute: plan.on ? plan.minute : 600, ml: plan.ml, days: plan.days };
+        const edit = (ch: Partial<typeof d>): void =>
+            this.setState({ planEdit: { ...this.state.planEdit, [n]: { ...d, ...ch } } });
+        const konflikt = ueberschneidung(n, d.minute, d.ml, alle);
+        const geaendert =
+            !!this.state.planEdit[n] &&
+            (!plan.on || d.minute !== plan.minute || d.ml !== plan.ml || d.days !== plan.days || !plan.bekannt);
+        const save = (): void => {
+            const time = hhmm(d.minute);
+            this.set(
+                pumpId(n, 'plan'),
+                JSON.stringify({ on: true, time, ml: d.ml, days: d.days }),
+                `P${n}: ${fmt(d.ml, 1)} ml um ${time}, ${tageText(d.days)} … Bestätigung über die Pumpe`,
+            );
+            const rest = { ...this.state.planEdit };
+            delete rest[n];
+            this.setState({ planEdit: rest });
+        };
+        return (
+            <>
+                <div className="line">
+                    <span className="k">Täglich dosieren</span>
+                    <Switch
+                        on={plan.on}
+                        label={`Pumpe ${n} täglich dosieren`}
+                        onToggle={() =>
+                            plan.on
+                                ? this.set(
+                                      pumpId(n, 'plan'),
+                                      JSON.stringify({ on: false }),
+                                      `P${n}: tägliche Dosis aus …`,
+                                  )
+                                : edit({})
+                        }
+                    />
+                </div>
+                <div className="small">
+                    {plan.on
+                        ? `${hhmm(plan.minute)} · ${plan.bekannt ? `${fmt(plan.ml, 1)} ml · ${tageText(plan.days)}` : 'Menge in der App eingestellt'}`
+                        : 'aus'}
+                </div>
+                {plan.on || this.state.planEdit[n] ? (
+                    <>
+                        <div className="line">
+                            <span className="k">Uhrzeit</span>
+                            <Step
+                                value={hhmm(d.minute)}
+                                onMinus={() => edit({ minute: (this.planMin(n, d.minute) + 1440 - 1) % 1440 })}
+                                repeat
+                                onPlus={() => edit({ minute: (this.planMin(n, d.minute) + 1) % 1440 })}
+                            />
+                            <span className="k">Menge</span>
+                            <Step
+                                value={`${fmt(d.ml, 1)} ml`}
+                                onMinus={() => edit({ ml: Math.max(0.5, Math.round((d.ml - 0.5) * 10) / 10) })}
+                                onPlus={() => edit({ ml: Math.min(30, Math.round((d.ml + 0.5) * 10) / 10) })}
+                            />
+                        </div>
+                        <div className="days">
+                            {WOCHENTAGE.map(([name, bit]) => (
+                                <button
+                                    key={name}
+                                    type="button"
+                                    className={d.days & bit ? 'on' : ''}
+                                    onClick={() => {
+                                        const next = d.days ^ bit;
+                                        if (next) {
+                                            edit({ days: next });
+                                        }
+                                    }}
+                                >
+                                    {name}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                className={d.days === ALLE_TAGE ? 'on' : ''}
+                                onClick={() => edit({ days: ALLE_TAGE })}
+                            >
+                                alle
+                            </button>
+                        </div>
+                        {konflikt ? (
+                            <div
+                                className="hint"
+                                style={{ color: '#ffb3b3' }}
+                            >
+                                Überschneidet sich mit P{konflikt} – nie zwei Pumpen gleichzeitig. Bitte andere Uhrzeit
+                                wählen.
+                            </div>
+                        ) : null}
+                        {!plan.bekannt && plan.on && !this.state.planEdit[n] ? (
+                            <div className="small">
+                                Menge und Tage stehen nur in der App – einmal hier speichern, dann kennt sie auch das
+                                Widget.
+                            </div>
+                        ) : null}
+                        {geaendert ? (
+                            <button
+                                type="button"
+                                className="btn prim"
+                                disabled={!!konflikt}
+                                onClick={save}
+                            >
+                                Plan speichern
+                            </button>
+                        ) : null}
+                    </>
+                ) : null}
             </>
         );
     }
