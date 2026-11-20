@@ -117,6 +117,20 @@ const CSS = `
 .zb .days{display:flex;gap:4px}
 .zb .days button{flex:1;height:28px;border-radius:8px;border:1px solid var(--zb-swbd);background:var(--zb-swbg);color:var(--zb-text2);font:600 11.5px var(--zb-font);cursor:pointer;padding:0}
 .zb .days button.on{background:rgba(242,193,78,.18);border-color:var(--zb-on);color:var(--zb-text)}
+.zb .wwrow{display:flex;align-items:flex-end;gap:8px;padding:2px 0}
+.zb .wwrow span{display:flex;flex-direction:column;align-items:center;gap:2px;width:38px}
+.zb .wwrow i{display:block;width:20px;border-radius:3px 3px 0 0;background:#4aa3ff}
+.zb .wwrow b{font:600 11px var(--zb-num);color:var(--zb-text)}
+.zb .wwrow small{font-size:9px;color:var(--zb-text2)}
+.zb .logrow{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.zb .logrow:last-child{border-bottom:0}
+.zb .ticons{display:flex;flex-wrap:wrap;gap:4px}
+.zb .ti{display:flex;flex-direction:column;align-items:center;width:44px;padding:2px 0 1px;border-radius:8px;background:rgba(255,255,255,.05);color:#cfccc3}
+.zb .ti small{font-size:9px;color:var(--zb-text2);max-width:42px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zb .picks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.zb .picks button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border-radius:12px;border:1px solid var(--zb-swbd);background:var(--zb-swbg);color:var(--zb-text2);font:600 10.5px var(--zb-font);cursor:pointer}
+.zb .picks button.on{border-color:var(--zb-on);background:rgba(242,193,78,.15);color:var(--zb-text)}
+.zb .rd.gruen{color:var(--zb-text2)}
 @media (prefers-reduced-motion:reduce){.zb *{animation:none!important}}
 `;
 

@@ -15,10 +15,14 @@ import {
     lightText,
     liter,
     neuerName,
+    parseAufgaben,
     parseCurve,
+    parsePruefung,
+    parseVerlauf,
     parseVorlagen,
     parseWindows,
     plugSwitch,
+    tageSeit,
     tageText,
     ueberschneidung,
     VORLAGEN,
@@ -151,5 +155,26 @@ describe('becken', () => {
         assert.equal(ueberschneidung(1, 841, 1, andere), 3);
         assert.equal(ueberschneidung(1, 850, 1, andere), null);
         assert.equal(ueberschneidung(2, 843, 5, andere), null);
+    });
+
+    it('care: history, tasks and days since (data of aquarium.js)', () => {
+        const v = parseVerlauf(
+            JSON.stringify([
+                { ts: new Date(2026, 10, 13, 12).getTime(), what: ['ww', 'rs', 'vf', 'sc'], ww: 60, nach: true },
+                { x: 1 },
+            ]),
+        );
+        assert.equal(v.length, 1);
+        const now = new Date(2026, 10, 20, 9).getTime();
+        assert.equal(tageSeit(v, 'ww', now), 7);
+        assert.equal(tageSeit(v, 'fi', now), null);
+        assert.equal(parseAufgaben('kaputt').length, 8);
+        assert.deepEqual(parseAufgaben('[{"k":"ww","n":"Wasserwechsel","iv":21.4}]'), [
+            { k: 'ww', n: 'Wasserwechsel', iv: 21 },
+        ]);
+        assert.deepEqual(
+            parsePruefung('[{"key":"filter","name":"Filter","soll":false,"status":"ok"}]')[0].status,
+            'ok',
+        );
     });
 });

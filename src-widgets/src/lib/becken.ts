@@ -523,3 +523,87 @@ export function faellig(iv: number, tage: number | null): Faellig {
  * @param pct percent of the tank
  */
 export const liter = (pct: number): number => Math.round((pct * TANK_L) / 100);
+
+// ---------- care mode (phase 7, script.js.vis2.Aquarium, 0_userdata.0.vis.aquarium.pflege.*) ----------
+
+export const PFLEGE = {
+    phase: '0_userdata.0.vis.aquarium.pflege.phase',
+    seit: '0_userdata.0.vis.aquarium.pflege.seit',
+    pruefung: '0_userdata.0.vis.aquarium.pflege.pruefung',
+    verlauf: '0_userdata.0.vis.aquarium.pflege.verlauf',
+    aufgaben: '0_userdata.0.vis.aquarium.pflege.aufgaben',
+    befehl: '0_userdata.0.vis.aquarium.pflege.befehl',
+    eintrag: '0_userdata.0.vis.aquarium.pflege.eintrag',
+} as const;
+
+export interface VerlaufEintrag {
+    ts: number;
+    what: string[];
+    ww?: number;
+    min?: number;
+    nach?: boolean;
+}
+
+export interface PruefZeile {
+    key: string;
+    name: string;
+    soll: boolean;
+    status: 'warte' | 'ok' | 'fehler' | 'offline';
+}
+
+const parseList = <T>(raw: unknown): T[] => {
+    try {
+        const v = typeof raw === 'string' && raw ? (JSON.parse(raw) as unknown) : [];
+        return Array.isArray(v) ? (v as T[]) : [];
+    } catch {
+        return [];
+    }
+};
+
+/**
+ * History of the script, newest last; broken entries dropped.
+ *
+ * @param raw pflege.verlauf
+ */
+export const parseVerlauf = (raw: unknown): VerlaufEintrag[] =>
+    parseList<VerlaufEintrag>(raw).filter(e => e && typeof e.ts === 'number' && Array.isArray(e.what));
+
+/**
+ * Tasks with intervals of the script; the defaults of Sven when missing.
+ *
+ * @param raw pflege.aufgaben
+ */
+export function parseAufgaben(raw: unknown): Aufgabe[] {
+    const list = parseList<Aufgabe>(raw).filter(a => a && typeof a.k === 'string' && typeof a.n === 'string');
+    return list.length ? list.map(a => ({ k: a.k, n: a.n, iv: Math.max(0, Math.round(Number(a.iv) || 0)) })) : AUFGABEN;
+}
+
+/**
+ * Check rows of the current switching step.
+ *
+ * @param raw pflege.pruefung
+ */
+export const parsePruefung = (raw: unknown): PruefZeile[] =>
+    parseList<PruefZeile>(raw).filter(z => z && typeof z.key === 'string');
+
+/**
+ * Whole days since a task was done last, null = never.
+ *
+ * @param verlauf history
+ * @param k task key
+ * @param now time
+ */
+export function tageSeit(verlauf: VerlaufEintrag[], k: string, now: number): number | null {
+    const last = [...verlauf].reverse().find(e => e.what.includes(k));
+    if (!last) {
+        return null;
+    }
+    const day = (t: number): number => {
+        const d = new Date(t);
+        return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+    };
+    return Math.max(0, day(now) - day(last.ts));
+}
+
+/** Short labels under the icons of the history */
+export const KURZ: Record<string, string> = { rs: 'Schnitt', wq: 'Test', sl: 'Schlauch', ww: 'Wasser' };

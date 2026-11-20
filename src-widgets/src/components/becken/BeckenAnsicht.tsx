@@ -12,7 +12,6 @@ import { createPortal } from 'react-dom';
 import type { Zeile } from '../../lib/aquarium';
 import {
     ALLE_TAGE,
-    AUFGABEN,
     CURVE_DEFAULT,
     type Dosierplan,
     dosierplan,
@@ -29,9 +28,15 @@ import {
     LOCKED,
     lightText,
     MAX_DOSE,
+    KURZ,
+    liter,
     neuerName,
     num,
+    parseAufgaben,
     parseCurve,
+    parsePruefung,
+    parseVerlauf,
+    PFLEGE,
     parseVorlagen,
     parseWindows,
     PLUGS,
@@ -40,6 +45,7 @@ import {
     plugSwitch,
     pumpId,
     PUMPS,
+    tageSeit,
     tageText,
     ueberschneidung,
     WOCHENTAGE,
@@ -47,7 +53,7 @@ import {
     vorlagenJson,
     windowsText,
 } from '../../lib/becken';
-import { backSvg, frontSvg, LED, type Modell, PIPES, type Stufe } from './schnitt';
+import { backSvg, frontSvg, type Modell, PIPES, type Stufe } from './schnitt';
 import { ensureBeckenStyles } from './style';
 import { startTank } from './tank';
 
@@ -86,6 +92,10 @@ interface S {
     scale: number;
     now: number;
     sel: string;
+    pflegeTab: 'faellig' | 'verlauf' | 'aufgaben';
+    pflegeSeite: number;
+    wwPct: number | null;
+    pick: string[];
 }
 
 const PLUG_KEYS = Object.keys(PLUGS) as PlugKey[];
@@ -339,6 +349,10 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
         scale: 1,
         now: Date.now(),
         sel: 'ww',
+        pflegeTab: 'faellig',
+        pflegeSeite: 0,
+        wwPct: null,
+        pick: [],
         planEdit: {},
     };
     private canvas = React.createRef<HTMLCanvasElement>();
@@ -853,17 +867,51 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                     className="card"
                     onClick={() => this.open('pflege')}
                 >
-                    <div className="ct">
-                        <span>PFLEGE</span>
-                        <span>Phase 7</span>
-                    </div>
-                    <div className="small">Fälligkeiten, Verlauf und Pflegemodus kommen mit dem Pflegemodul.</div>
+                    {this.pflegeKarte()}
                 </div>
                 <div className="foot">
                     <span>{ago === null ? 'Bluetooth: keine Lesung' : `Bluetooth gelesen vor ${ago} min`}</span>
                     <span>Stand {hhmm(min)}</span>
                 </div>
             </div>
+        );
+    }
+
+    private pflegeKarte(): React.ReactNode {
+        const phase = typeof this.v(PFLEGE.phase) === 'string' ? (this.v(PFLEGE.phase) as string) : '';
+        const verlauf = parseVerlauf(this.v(PFLEGE.verlauf));
+        const st = parseAufgaben(this.v(PFLEGE.aufgaben))
+            .filter(a => a.iv)
+            .map(a => {
+                const t = tageSeit(verlauf, a.k, this.state.now);
+                return { a, t, f: faellig(a.iv, t) };
+            });
+        const due = st.filter(x => x.f.stufe === 'rot' || x.f.stufe === 'gelb');
+        const next = st
+            .filter(x => x.t !== null && x.f.stufe === 'gruen')
+            .sort((x, y) => x.a.iv - (x.t ?? 0) - (y.a.iv - (y.t ?? 0)))[0];
+        return (
+            <>
+                <div className="ct">
+                    <span>PFLEGE</span>
+                    <span style={{ color: phase ? '#f2c14e' : undefined }}>
+                        {phase ? 'läuft' : due.length ? `${due.length} fällig` : 'nichts fällig'}
+                    </span>
+                </div>
+                <div className="small">
+                    {phase
+                        ? phase === 'auffuellen'
+                            ? 'Wasser auffüllen, dann „Wasser ist voll“'
+                            : phase === 'abfrage'
+                              ? 'Bitte eintragen, was gemacht wurde'
+                              : 'Pflegemodus aktiv – Alarm pausiert'
+                        : due.length
+                          ? due.map(x => `${x.a.n} ${x.f.text}`).join(' · ')
+                          : next
+                            ? `Als Nächstes: ${next.a.n} ${next.f.text}`
+                            : 'Noch nichts erfasst.'}
+                </div>
+            </>
         );
     }
 
@@ -881,7 +929,7 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
             licht: ['LICHT', 'Lampe + Hintergrund'],
             duenger: ['DÜNGER', 'Dosierpumpe'],
             wasser: ['WASSER', 'Temperatur + Kühlung'],
-            pflege: ['PFLEGE', 'Was ist fällig?'],
+            pflege: ['PFLEGE', this.v(PFLEGE.phase) ? 'Pflegemodus' : 'Was ist fällig?'],
             co2: ['WASSER', 'CO₂-Ventil'],
             proxy: ['TECHNIK', 'Bluetooth-Proxy'],
         };
@@ -1949,71 +1997,493 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
     }
 
     private pflegeBody(): React.ReactNode {
-        const sel = AUFGABEN.find(a => a.k === this.state.sel) ?? AUFGABEN[0];
-        return (
+        const phase = typeof this.v(PFLEGE.phase) === 'string' ? (this.v(PFLEGE.phase) as string) : '';
+        if (phase === 'abfrage') {
+            return this.abfrageBody();
+        }
+        if (phase) {
+            return this.pflegeLaeuft(phase);
+        }
+        const tab = this.state.pflegeTab;
+        const aufgaben = parseAufgaben(this.v(PFLEGE.aufgaben));
+        const verlauf = parseVerlauf(this.v(PFLEGE.verlauf));
+        const now = this.state.now;
+        const sel = aufgaben.find(a => a.k === this.state.sel) ?? aufgaben[0];
+        const canWrite = this.has(PFLEGE.befehl);
+        const icon = (k: string, size = 22): React.JSX.Element => (
+            <svg
+                width={size}
+                height={size}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.6}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            >
+                <path d={TASK_ICONS[k] ?? 'M5 12h14'} />
+            </svg>
+        );
+        const head = (
             <>
                 <button
                     type="button"
                     className="btn prim wide"
-                    disabled
+                    disabled={!canWrite}
+                    onClick={() =>
+                        this.set(PFLEGE.befehl, 'start', 'Pflege startet … Geräte werden ausgeschaltet und geprüft')
+                    }
                 >
                     Pflege starten
                 </button>
-                <div className="rings">
-                    {AUFGABEN.map(t => {
-                        const f = faellig(t.iv, null);
-                        const r = 16;
-                        const c = 2 * Math.PI * r;
-                        return (
-                            <button
-                                key={t.k}
-                                type="button"
-                                className={`ring ${t.k === sel.k ? 'sel' : ''}`}
-                                onClick={() => this.setState({ sel: t.k })}
-                            >
-                                <svg
-                                    width={44}
-                                    height={44}
-                                    viewBox="0 0 44 44"
-                                >
-                                    <circle
-                                        cx={22}
-                                        cy={22}
-                                        r={r}
-                                        fill="none"
-                                        stroke="#3a3a40"
-                                        strokeWidth={4}
-                                    />
-                                    <circle
-                                        cx={22}
-                                        cy={22}
-                                        r={r}
-                                        fill="none"
-                                        stroke={LED.aus}
-                                        strokeWidth={4}
-                                        strokeDasharray={`${c * f.frac} ${c}`}
-                                        transform="rotate(-90 22 22)"
-                                    />
-                                    <g
-                                        transform="translate(10 10)"
-                                        fill="none"
-                                        stroke="#cfccc3"
-                                        strokeWidth={1.6}
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    >
-                                        <path d={TASK_ICONS[t.k]} />
-                                    </g>
-                                </svg>
-                                <span className="rn">{t.n}</span>
-                                <span className="rd">{t.iv ? `alle ${t.iv} T` : 'ohne Frist'}</span>
-                            </button>
-                        );
-                    })}
+                <div className="seg2 tabs">
+                    {(
+                        [
+                            ['faellig', 'Fällig'],
+                            ['verlauf', 'Verlauf'],
+                            ['aufgaben', 'Aufgaben'],
+                        ] as const
+                    ).map(([k, n]) => (
+                        <button
+                            key={k}
+                            type="button"
+                            className={tab === k ? 'on' : ''}
+                            onClick={() => this.setState({ pflegeTab: k, pflegeSeite: 0 })}
+                        >
+                            {n}
+                        </button>
+                    ))}
                 </div>
-                <div className="hint">
-                    Pflegemodus (Geräte aus/an mit Prüfung), „Heute erledigt“, Verlauf und Wasserwechsel in % kommen mit
-                    dem Pflegemodul (Phase 7).
+                {!canWrite ? <div className="hint">Pflegemodul fehlt noch im Aquarium-Skript.</div> : null}
+            </>
+        );
+        if (tab === 'faellig') {
+            const tage = tageSeit(verlauf, sel.k, now);
+            const ww = verlauf.filter(e => typeof e.ww === 'number').slice(-6);
+            const pct = this.state.wwPct ?? ww.at(-1)?.ww ?? 30;
+            return (
+                <>
+                    {head}
+                    <div className="rings">
+                        {aufgaben.map(t => {
+                            const f = faellig(t.iv, tageSeit(verlauf, t.k, now));
+                            const r = 16;
+                            const c = 2 * Math.PI * r;
+                            const col = { gruen: '#6fe08a', gelb: '#f2c14e', rot: '#e5484d', grau: '#55555c' }[f.stufe];
+                            return (
+                                <button
+                                    key={t.k}
+                                    type="button"
+                                    className={`ring ${t.k === sel.k ? 'sel' : ''}`}
+                                    onClick={() => this.setState({ sel: t.k })}
+                                >
+                                    <svg
+                                        width={44}
+                                        height={44}
+                                        viewBox="0 0 44 44"
+                                    >
+                                        <circle
+                                            cx={22}
+                                            cy={22}
+                                            r={r}
+                                            fill="none"
+                                            stroke="#3a3a40"
+                                            strokeWidth={4}
+                                        />
+                                        <circle
+                                            cx={22}
+                                            cy={22}
+                                            r={r}
+                                            fill="none"
+                                            stroke={col}
+                                            strokeWidth={4}
+                                            strokeLinecap="round"
+                                            strokeDasharray={`${c * f.frac} ${c}`}
+                                            transform="rotate(-90 22 22)"
+                                        />
+                                        <g
+                                            transform="translate(10 10)"
+                                            fill="none"
+                                            stroke="#cfccc3"
+                                            strokeWidth={1.6}
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <path d={TASK_ICONS[t.k] ?? 'M5 12h14'} />
+                                        </g>
+                                    </svg>
+                                    <span className="rn">{t.n}</span>
+                                    <span className={`rd ${f.stufe}`}>{f.text}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="box">
+                        <div className="line">
+                            <b>{sel.n}</b>
+                            <span className="k">{tage === null ? 'noch nie erfasst' : `zuletzt vor ${tage} T`}</span>
+                        </div>
+                        {sel.k === 'ww' ? (
+                            <>
+                                <div className="wwrow">
+                                    {ww.length ? (
+                                        ww.map(e => (
+                                            <span key={e.ts}>
+                                                <b>{e.ww} %</b>
+                                                <i style={{ height: Math.max(3, (e.ww ?? 0) * 0.3) }} />
+                                                <small>
+                                                    {new Date(e.ts).toLocaleDateString('de-DE', {
+                                                        day: 'numeric',
+                                                        month: 'numeric',
+                                                    })}
+                                                </small>
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="k">noch kein Wechsel erfasst</span>
+                                    )}
+                                </div>
+                                <div
+                                    className="sl wide"
+                                    style={{ '--c': '#4aa3ff' } as React.CSSProperties}
+                                >
+                                    <span>Menge</span>
+                                    <input
+                                        type="range"
+                                        min={5}
+                                        max={100}
+                                        step={5}
+                                        value={pct}
+                                        onChange={e => this.setState({ wwPct: Number(e.target.value) })}
+                                    />
+                                    <b>
+                                        {pct} % · {liter(pct)} l
+                                    </b>
+                                </div>
+                            </>
+                        ) : null}
+                        <div className="line">
+                            <span className="k">{sel.iv ? `alle ${sel.iv} T` : 'ohne Frist'}</span>
+                            <button
+                                type="button"
+                                className="btn"
+                                disabled={!canWrite}
+                                onClick={() =>
+                                    this.set(
+                                        PFLEGE.eintrag,
+                                        JSON.stringify({ what: [sel.k], ...(sel.k === 'ww' ? { ww: pct } : null) }),
+                                        `${sel.n} heute erledigt`,
+                                    )
+                                }
+                            >
+                                Heute erledigt
+                            </button>
+                        </div>
+                    </div>
+                </>
+            );
+        }
+        if (tab === 'verlauf') {
+            const PG = 5;
+            const list = [...verlauf].reverse();
+            const pages = Math.max(1, Math.ceil(list.length / PG));
+            const pg = Math.min(this.state.pflegeSeite, pages - 1);
+            return (
+                <>
+                    {head}
+                    <div
+                        className="box"
+                        style={{ gap: 0 }}
+                    >
+                        {list.length ? (
+                            list.slice(pg * PG, pg * PG + PG).map(e => (
+                                <div
+                                    key={e.ts}
+                                    className="logrow"
+                                >
+                                    <b>
+                                        {new Date(e.ts).toLocaleDateString('de-DE', {
+                                            day: 'numeric',
+                                            month: 'numeric',
+                                        })}
+                                    </b>
+                                    <span className="ticons">
+                                        {e.what.map(k => {
+                                            const a = aufgaben.find(x => x.k === k);
+                                            return (
+                                                <span
+                                                    key={k}
+                                                    className="ti"
+                                                    title={a?.n ?? k}
+                                                >
+                                                    {icon(k, 16)}
+                                                    <small>
+                                                        {k === 'ww' && e.ww ? `${e.ww}%` : (KURZ[k] ?? a?.n ?? k)}
+                                                    </small>
+                                                </span>
+                                            );
+                                        })}
+                                    </span>
+                                    <span className="k">{e.min ? `${e.min} min` : e.nach ? 'nachgetragen' : ''}</span>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="small">Noch keine Pflege erfasst.</div>
+                        )}
+                    </div>
+                    {pages > 1 ? (
+                        <div className="line">
+                            <button
+                                type="button"
+                                className="btn"
+                                disabled={pg >= pages - 1}
+                                onClick={() => this.setState({ pflegeSeite: pg + 1 })}
+                            >
+                                ‹ ältere
+                            </button>
+                            <span className="k">
+                                {pg + 1} / {pages}
+                            </span>
+                            <button
+                                type="button"
+                                className="btn"
+                                disabled={!pg}
+                                onClick={() => this.setState({ pflegeSeite: pg - 1 })}
+                            >
+                                neuere ›
+                            </button>
+                        </div>
+                    ) : null}
+                </>
+            );
+        }
+        const setIv = (k: string, d: number): void => {
+            const next = aufgaben.map(a => (a.k === k ? { ...a, iv: Math.max(0, Math.min(365, a.iv + d)) } : a));
+            const a = next.find(x => x.k === k)!;
+            this.set(PFLEGE.aufgaben, JSON.stringify(next), `${a.n}: ${a.iv ? `alle ${a.iv} Tage` : 'ohne Frist'}`);
+        };
+        return (
+            <>
+                {head}
+                <div
+                    className="box"
+                    style={{ gap: 0 }}
+                >
+                    {aufgaben.map(a => (
+                        <div
+                            key={a.k}
+                            className="line"
+                        >
+                            {icon(a.k, 18)}
+                            <span style={{ flex: 1, fontSize: 12.5 }}>{a.n}</span>
+                            <Step
+                                value={a.iv ? `${a.iv} T` : 'keine'}
+                                onMinus={() => setIv(a.k, -1)}
+                                onPlus={() => setIv(a.k, 1)}
+                                repeat
+                            />
+                        </div>
+                    ))}
+                </div>
+                <div className="small">Frist „keine“ = nur im Verlauf, nie fällig.</div>
+            </>
+        );
+    }
+
+    /** Care mode running: check rows and the two steps of the end (Sven 20.11.2026) */
+    private pflegeLaeuft(phase: string): React.ReactNode {
+        const seit = this.n(PFLEGE.seit);
+        const min = seit ? Math.max(0, Math.round((this.state.now - seit) / 60000)) : 0;
+        const rows = parsePruefung(this.v(PFLEGE.pruefung));
+        const busy = phase === 'aus' || phase === 'wasser' || phase === 'voll';
+        const titel: Record<string, string> = {
+            aus: 'Pflege beginnt …',
+            laeuft: 'Pflege läuft',
+            wasser: 'Wasser läuft wieder an …',
+            auffuellen: 'Wasser auffüllen',
+            voll: 'Alles geht wieder an …',
+        };
+        return (
+            <>
+                <div className="big">
+                    <b style={{ fontSize: 26 }}>{titel[phase] ?? phase}</b>
+                    <span>seit {min} min · Alarm pausiert</span>
+                </div>
+                <div
+                    className="box"
+                    style={{ gap: 0 }}
+                >
+                    {rows.map(z => (
+                        <div
+                            key={z.key}
+                            className="line"
+                            style={{ minHeight: 28 }}
+                        >
+                            <span
+                                style={{
+                                    width: 18,
+                                    color: z.status === 'ok' ? '#6fe08a' : z.status === 'warte' ? '#f2c14e' : '#e5484d',
+                                }}
+                            >
+                                {z.status === 'ok' ? '✓' : z.status === 'warte' ? '…' : '✕'}
+                            </span>
+                            <span style={{ flex: 1, fontWeight: 600, fontSize: 12.5 }}>{z.name}</span>
+                            <span className="k">
+                                {z.status === 'ok'
+                                    ? `${z.soll ? 'an' : 'aus'} · bestätigt`
+                                    : z.status === 'warte'
+                                      ? z.soll
+                                          ? 'schalte ein …'
+                                          : 'schalte aus …'
+                                      : z.status === 'offline'
+                                        ? 'offline'
+                                        : 'nicht bestätigt'}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+                {phase === 'laeuft' ? (
+                    <>
+                        <div className="small">
+                            Filter, Heizung, UV, CO₂, Skimmer, Nachfüllung und Rückwand sind aus, die Hauptlampe ist an.
+                        </div>
+                        <button
+                            type="button"
+                            className="btn prim wide"
+                            onClick={() =>
+                                this.set(PFLEGE.befehl, 'wasser', 'Filter, Heizung, UV und CO₂ gehen wieder an …')
+                            }
+                        >
+                            1 · Wasser läuft wieder
+                        </button>
+                    </>
+                ) : null}
+                {phase === 'auffuellen' ? (
+                    <>
+                        <div className="small">
+                            Filter, Heizung, UV und CO₂ laufen. Skimmer, Nachfüllung und Rückwand warten, bis das Becken
+                            voll ist.
+                        </div>
+                        <button
+                            type="button"
+                            className="btn prim wide"
+                            onClick={() =>
+                                this.set(
+                                    PFLEGE.befehl,
+                                    'voll',
+                                    'Skimmer, Nachfüllung und Rückwand gehen an, Lampe zurück auf Zeitplan …',
+                                )
+                            }
+                        >
+                            2 · Wasser ist voll
+                        </button>
+                    </>
+                ) : null}
+                {busy ? <div className="small">Jedes Gerät wird geprüft (bis 45 s).</div> : null}
+                <div className="small">Nach 2,5 h ohne „Wasser ist voll“ kommt eine Erinnerung per Telegram.</div>
+                {!busy ? (
+                    <HoldButton
+                        label="Notfall: alles sofort wieder an (halten)"
+                        onAct={() => this.set(PFLEGE.befehl, 'abbrechen', 'Alles geht sofort wieder an …')}
+                    />
+                ) : null}
+            </>
+        );
+    }
+
+    /** After the care: what was done (icons, water change in % and litres) */
+    private abfrageBody(): React.ReactNode {
+        const aufgaben = parseAufgaben(this.v(PFLEGE.aufgaben));
+        const pick = this.state.pick;
+        const ww = pick.includes('ww');
+        const last =
+            parseVerlauf(this.v(PFLEGE.verlauf))
+                .filter(e => typeof e.ww === 'number')
+                .at(-1)?.ww ?? 30;
+        const pct = this.state.wwPct ?? last;
+        const toggle = (k: string): void =>
+            this.setState({ pick: pick.includes(k) ? pick.filter(x => x !== k) : [...pick, k] });
+        return (
+            <>
+                <div className="line">
+                    <b style={{ fontSize: 17 }}>Was hast du gemacht?</b>
+                    <span className="k">alles wieder an ✓</span>
+                </div>
+                <div className="picks">
+                    {aufgaben.map(a => (
+                        <button
+                            key={a.k}
+                            type="button"
+                            className={pick.includes(a.k) ? 'on' : ''}
+                            onClick={() => toggle(a.k)}
+                        >
+                            <svg
+                                width={22}
+                                height={22}
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={1.6}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d={TASK_ICONS[a.k] ?? 'M5 12h14'} />
+                            </svg>
+                            {a.n}
+                        </button>
+                    ))}
+                </div>
+                {ww ? (
+                    <div className="box">
+                        <div
+                            className="sl wide"
+                            style={{ '--c': '#4aa3ff' } as React.CSSProperties}
+                        >
+                            <span>Wasser</span>
+                            <input
+                                type="range"
+                                min={5}
+                                max={100}
+                                step={5}
+                                value={pct}
+                                onChange={e => this.setState({ wwPct: Number(e.target.value) })}
+                            />
+                            <b>
+                                {pct} % · {liter(pct)} l
+                            </b>
+                        </div>
+                    </div>
+                ) : null}
+                <div className="line">
+                    <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                            this.set(
+                                PFLEGE.eintrag,
+                                JSON.stringify({ skip: true }),
+                                'Pflege beendet, nichts eingetragen',
+                            );
+                            this.setState({ pick: [] });
+                        }}
+                    >
+                        Nichts eintragen
+                    </button>
+                    <button
+                        type="button"
+                        className="btn prim"
+                        disabled={!pick.length}
+                        onClick={() => {
+                            this.set(
+                                PFLEGE.eintrag,
+                                JSON.stringify({ what: pick, ...(ww ? { ww: pct } : null) }),
+                                'Pflege gespeichert',
+                            );
+                            this.setState({ pick: [], pflegeTab: 'verlauf' });
+                        }}
+                    >
+                        Speichern
+                    </button>
                 </div>
             </>
         );

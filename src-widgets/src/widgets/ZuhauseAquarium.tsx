@@ -19,7 +19,18 @@ import { MiniBecken } from '../components/MiniBecken';
 import { Scaled } from '../components/Scaled';
 import { TILE_BASE, Tile } from '../components/Tile';
 import { AQ, DEFAULT_BASE, miniBecken, parseGeraete, type TileArt, tileView } from '../lib/aquarium';
-import { FUTURE, IDS, PLUGS, plugPower, plugSwitch, PUMP_FIELDS, pumpId, PUMPS, type PlugKey } from '../lib/becken';
+import {
+    FUTURE,
+    IDS,
+    PFLEGE,
+    PLUGS,
+    plugPower,
+    plugSwitch,
+    PUMP_FIELDS,
+    pumpId,
+    PUMPS,
+    type PlugKey,
+} from '../lib/becken';
 import type { TileLook } from '../lib/model';
 import { ensureStyles, fonts, v } from '../lib/theme';
 import { MOTION_FIELDS, PREFIX, SET_INFO, motionAllowed, motionClass } from '../lib/vis';
@@ -36,6 +47,7 @@ const BECKEN_IDS: string[] = [
     ...Object.values(FUTURE),
     VORLAGEN_ID,
     'chihiros.0.info.proxyVersion',
+    ...Object.values(PFLEGE),
 ];
 
 interface AquariumRxData {
@@ -148,7 +160,8 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
     }
 
     private watch(): void {
-        const ids = Object.values(AQ).map(n => this.id(n));
+        // the care phase changes the tile too, so it is always watched
+        const ids = [...Object.values(AQ).map(n => this.id(n)), PFLEGE.phase];
         void this.watcher?.watch(this.state.zhBecken ? [...ids, ...BECKEN_IDS] : ids);
     }
 
@@ -179,7 +192,7 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
         this.setState({ zhBecken: true }, () => this.watch());
         const socket = this.props.context.socket as unknown as { getObject(id: string): Promise<unknown> };
         const vorhanden = new Set<string>();
-        for (const id of [...Object.values(FUTURE), VORLAGEN_ID]) {
+        for (const id of [...Object.values(FUTURE), VORLAGEN_ID, PFLEGE.befehl]) {
             try {
                 if (await socket.getObject(id)) {
                     vorhanden.add(id);
@@ -237,6 +250,18 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
             liste,
             label: name,
         });
+        const pflege = this.watcher?.snapshot(PFLEGE.phase)?.val;
+        if (typeof pflege === 'string' && pflege) {
+            // care mode (phase 7): no alarm look, name "Pflege" with a wrench badge
+            view.art = 'gelb';
+            view.label = pflege === 'auffuellen' ? 'Auffüllen' : 'Pflege';
+            view.text =
+                pflege === 'auffuellen'
+                    ? 'Pflege: Wasser auffüllen'
+                    : pflege === 'abfrage'
+                      ? 'Pflege: bitte eintragen'
+                      : 'Pflege läuft';
+        }
         const levelClass = motionClass(d.animationStufe, d.nachtAus, new Date(this.state.zhNow));
         const motion = motionAllowed(levelClass) && d.animation !== 'keine';
         const look = LOOK[view.art];
@@ -268,7 +293,23 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
                         textAlign: 'center',
                     }}
                 >
-                    !
+                    {typeof pflege === 'string' && pflege ? (
+                        <svg
+                            viewBox="0 0 24 24"
+                            width={10}
+                            height={10}
+                            fill="none"
+                            stroke="#2a2108"
+                            strokeWidth={3}
+                            strokeLinecap="round"
+                            style={{ marginTop: 2.5 }}
+                            aria-hidden
+                        >
+                            <path d="M14 4l6 6-9 9H5v-6z" />
+                        </svg>
+                    ) : (
+                        '!'
+                    )}
                 </span>
             ) : null;
 
