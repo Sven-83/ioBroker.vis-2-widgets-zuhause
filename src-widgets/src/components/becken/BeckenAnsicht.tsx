@@ -1790,8 +1790,7 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                 </div>
                 <div className="hint">
                     Pflegemodus (Geräte aus/an mit Prüfung), „Heute erledigt“, Verlauf und Wasserwechsel in % kommen mit
-                    dem Pflegemodul (Phase 7). Letzte Pflege laut Sven: 13.11. Wasserwechsel 60 %, Rückschnitt,
-                    Vorfilter, Scheiben.
+                    dem Pflegemodul (Phase 7).
                 </div>
             </>
         );
