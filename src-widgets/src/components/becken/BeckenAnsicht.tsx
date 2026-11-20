@@ -1488,8 +1488,9 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
             this.setState({ planEdit: { ...this.state.planEdit, [n]: { ...d, ...ch } } });
         const konflikt = ueberschneidung(n, d.minute, d.ml, alle);
         const geaendert =
-            !!this.state.planEdit[n] &&
-            (!plan.on || d.minute !== plan.minute || d.ml !== plan.ml || d.days !== plan.days || !plan.bekannt);
+            (plan.on && !plan.bekannt) ||
+            (!!this.state.planEdit[n] &&
+                (!plan.on || d.minute !== plan.minute || d.ml !== plan.ml || d.days !== plan.days));
         const save = (): void => {
             const time = hhmm(d.minute);
             this.set(
@@ -1534,6 +1535,8 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                                 repeat
                                 onPlus={() => edit({ minute: (this.planMin(n, d.minute) + 1) % 1440 })}
                             />
+                        </div>
+                        <div className="line">
                             <span className="k">Menge</span>
                             <Step
                                 value={`${fmt(d.ml, 1)} ml`}
