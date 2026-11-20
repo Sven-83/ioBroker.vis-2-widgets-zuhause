@@ -326,7 +326,11 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
         let last = performance.now();
         let T = 0;
         const tick = (now: number): void => {
-            const dt = this.props.motion ? Math.min(0.05, (now - last) / 1000) : 0;
+            if (now - last < 32) {
+                this.raf = requestAnimationFrame(tick);
+                return;
+            }
+            const dt = this.props.motion ? Math.min(0.1, (now - last) / 1000) : 0;
             last = now;
             T += dt;
             for (const q of this.parts) {
@@ -346,14 +350,16 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
             const reactor = this.back.current?.querySelector<SVGGElement>('[data-reactor]');
             if (reactor) {
                 const on = !!this.model?.valve && !!this.model?.flow && this.props.motion;
-                reactor.innerHTML = on
-                    ? [0, 1, 2, 3, 4]
-                          .map(
-                              i =>
-                                  `<circle cx="${396 + Math.sin(T * 4 + i) * 3}" cy="${466 - ((T * 6 + i * 24) % 116)}" r="${1.4 + (i % 2)}" fill="#d8ecff" opacity=".85"/>`,
-                          )
-                          .join('')
-                    : '';
+                if (reactor.childElementCount !== 5) {
+                    reactor.innerHTML = [0, 1, 2, 3, 4]
+                        .map(i => `<circle r="${1.4 + (i % 2)}" fill="#d8ecff" opacity=".85"/>`)
+                        .join('');
+                }
+                Array.from(reactor.children).forEach((el, i) => {
+                    el.setAttribute('cx', String(396 + Math.sin(T * 4 + i) * 3));
+                    el.setAttribute('cy', String(466 - ((T * 6 + i * 24) % 116)));
+                    el.setAttribute('visibility', on ? 'visible' : 'hidden');
+                });
             }
             this.raf = requestAnimationFrame(tick);
         };
@@ -422,7 +428,8 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
             return;
         }
         g.setAttribute('data-sig', sig);
-        g.innerHTML = list.map(q => `<circle r="${q.r}" fill="${q.c}" filter="url(#zbGlow2)"/>`).join('');
+        // no blur filter per particle: forty blurred circles per frame made the tablet stutter
+        g.innerHTML = list.map(q => `<circle r="${q.r}" fill="${q.c}" opacity=".9"/>`).join('');
         this.parts = list.map((q, i) => ({ p: q.p, L: q.L, d: q.d, v: q.v, el: g.children[i] as SVGCircleElement }));
     }
 
@@ -532,7 +539,6 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
                         aria-label="Becken-Ansicht"
                         style={{ transform: s !== 1 ? `scale(${s})` : undefined, transformOrigin: 'top left' }}
                     >
-                        <div className="grid" />
                         <svg
                             ref={this.back}
                             className="lay"

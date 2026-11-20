@@ -322,7 +322,8 @@ export function startTank(canvas: HTMLCanvasElement, s: Szene): () => void {
         const h = canvas.clientHeight || rect.height;
         // the view is scaled by CSS: draw with the real pixel size, so it stays sharp when enlarged
         const zoom = w ? rect.width / w : 1;
-        const dpr = Math.min(3, (window.devicePixelRatio || 1) * zoom);
+        // capped: a tablet with a large ratio would draw millions of pixels per frame (stutter, Sven 20.11.2026)
+        const dpr = Math.min(1.5, (window.devicePixelRatio || 1) * zoom);
         if (!w || !h || (w === W && h === H && Math.abs(dpr - DPR) < 0.05)) {
             return;
         }
@@ -552,8 +553,15 @@ export function startTank(canvas: HTMLCanvasElement, s: Szene): () => void {
         }
     }
 
+    let lastDraw = 0;
     function frame(now: number): void {
         const c = ctx!;
+        // 30 frames per second are enough for slow fish and save the tablet half the work
+        if (now - lastDraw < 32) {
+            frameId = requestAnimationFrame(frame);
+            return;
+        }
+        lastDraw = now;
         size();
         const moving = s.motion();
         const dt = moving ? Math.min(0.05, (now - last) / 1000) : 0;
@@ -648,8 +656,8 @@ export function startTank(canvas: HTMLCanvasElement, s: Szene): () => void {
         if (light > 0.05) {
             c.save();
             c.globalCompositeOperation = 'lighter';
-            for (let x = 0; x < W; x += 9) {
-                for (let y = sand; y < H; y += 7) {
+            for (let x = 0; x < W; x += 13) {
+                for (let y = sand; y < H; y += 9) {
                     const v =
                         Math.sin(x * 0.05 + T * 1.3) +
                         Math.sin(y * 0.11 - T * 0.9 + x * 0.02) +

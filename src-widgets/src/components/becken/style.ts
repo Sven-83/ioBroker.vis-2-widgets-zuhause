@@ -8,11 +8,10 @@ const ID = 'vis-2-widgets-zuhause-becken';
 const CSS = `
 .zb{--zb-font:${fonts.text};--zb-num:${fonts.numbers};--zb-text:#ece9e1;--zb-text2:#a3a19a;--zb-muted:#7c7a74;--zb-bd:#36363b;
   --zb-swbg:#333338;--zb-swbd:#44444a;--zb-on:#f2c14e;--zb-onfg:#2a2108;--zb-ok:#6fe08a;--zb-rot:#e5484d;--zb-rotfg:#ffb3b3;
-  position:relative;width:1050px;height:575px;background:radial-gradient(ellipse at 45% 40%,#25282d 0%,#17181b 70%);
+  position:relative;width:1050px;height:575px;background:var(--bg,#232325);
   overflow:hidden;border-radius:22px;font-family:var(--zb-font);color:var(--zb-text);user-select:none;-webkit-user-select:none;
   box-shadow:0 30px 80px rgba(0,0,0,.6)}
 .zb *{box-sizing:border-box}
-.zb .grid{position:absolute;left:0;top:0;width:730px;bottom:0;background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);background-size:20px 20px}
 .zb svg.lay{position:absolute;left:0;top:0;width:730px;height:575px}
 .zb canvas.tank{position:absolute;left:170px;top:86px;width:330px;height:204px}
 .zb .co{cursor:pointer}

@@ -127,11 +127,11 @@ export function backSvg(m: Modell): string {
     <g data-rotor="1" style="transform-origin:214px 418px"><path d="M214 409 v18 M205 418 h18" stroke="${flow ? '#7fe6ff' : '#55555c'}" stroke-width="2"/></g></g>`;
     const heizOn = m.sw.heizung;
     h += `<g class="hot" data-k="heizung"><rect x="188" y="452" width="52" height="20" rx="6" fill="#2a2124" stroke="#5a3a3a"/>
-    <g clip-path="url(#zbHeat)"><path d="M178 462 q4 -6 8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0" fill="none" stroke="${m.heating ? '#ff7a5a' : heizOn ? '#c4574a' : '#4a4a4a'}" stroke-width="2.4" stroke-linecap="round" ${m.heating ? 'filter="url(#zbGlow)"' : ''}>
+    <g clip-path="url(#zbHeat)"><path d="M178 462 q4 -6 8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0" fill="none" stroke="${m.heating ? '#ff7a5a' : heizOn ? '#c4574a' : '#4a4a4a'}" stroke-width="2.4" stroke-linecap="round">
       ${heizOn ? `<animateTransform attributeName="transform" type="translate" values="0 0;16 0" dur="${m.heating ? 0.9 : 2.8}s" repeatCount="indefinite"/><animate attributeName="opacity" values="${m.heating ? '1;.65;1' : '.75;.45;.75'}" dur="${m.heating ? 1.2 : 3}s" repeatCount="indefinite"/>` : ''}</path></g></g>`;
     const uvOn = m.sw.uv && flow;
     h += `<g class="hot" data-k="uv"><rect x="272" y="402" width="90" height="20" rx="10" fill="url(#zbMet)" stroke="#5a5b63"/>
-    <rect x="282" y="409" width="70" height="6" rx="3" fill="${uvOn ? '#c49bff' : '#3a3a40'}" ${uvOn ? 'filter="url(#zbGlow)"' : ''}>${uvOn ? '<animate attributeName="opacity" values=".6;1;.6" dur="1.2s" repeatCount="indefinite"/>' : ''}</rect>
+    <rect x="282" y="409" width="70" height="6" rx="3" fill="${uvOn ? '#c49bff' : '#3a3a40'}">${uvOn ? '<animate attributeName="opacity" values=".6;1;.6" dur="1.2s" repeatCount="indefinite"/>' : ''}</rect>
     ${m.stufe('uv') === 'rot' ? '<rect x="300" y="392" width="34" height="12" rx="4" fill="#e5484d"/><text x="317" y="401" text-anchor="middle" style="font:700 8px var(--zb-font);fill:#fff">STÖRUNG</text>' : ''}</g>`;
     h += `<g class="hot" data-k="co2"><rect x="386" y="346" width="20" height="124" rx="9" fill="url(#zbTeal)" stroke="#3d7f94"/>
     <g data-reactor="1"></g>

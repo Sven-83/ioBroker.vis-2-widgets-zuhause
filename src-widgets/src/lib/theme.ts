@@ -116,7 +116,7 @@ ${face('Zuhause Barlow Condensed', 600, condensed600)}
 @keyframes zh-dash{to{stroke-dashoffset:-14}}
 .zh-a-dash{animation:zh-dash 1s linear infinite}
 .zh-a-shake{animation:zh-shake .5s linear infinite}
-@keyframes zh-fish{0%{transform:translateX(0) scaleX(1)}45%{transform:translateX(15px) scaleX(1)}50%{transform:translateX(15px) scaleX(-1)}95%{transform:translateX(0) scaleX(-1)}100%{transform:translateX(0) scaleX(1)}}
+@keyframes zh-fish{0%{transform:translateX(0) scaleX(-1)}45%{transform:translateX(15px) scaleX(-1)}50%{transform:translateX(15px) scaleX(1)}95%{transform:translateX(0) scaleX(1)}100%{transform:translateX(0) scaleX(-1)}}
 .zh-a-fish{transform-box:fill-box;transform-origin:center;animation:zh-fish 7s ease-in-out infinite}
 .zh-d-f2{animation-duration:9s;animation-delay:-3s}
 .zh-d-f3{animation-duration:8s;animation-delay:-5s}
