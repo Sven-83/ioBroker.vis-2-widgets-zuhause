@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { parseGeraete, spalten, tileView, type Zeile, zusammenfassung } from './aquarium';
+import { miniBecken, parseGeraete, spalten, tileView, type Zeile, zusammenfassung } from './aquarium';
 
 // written by script.js.vis2.Aquarium on 18.11.2026 22:16
 const ECHT =
@@ -89,5 +89,14 @@ describe('aquarium', () => {
                 ['Sonstiges', 1],
             ],
         );
+    });
+
+    it('mini tank: light from the background light, flow from the filter', () => {
+        assert.deepEqual(miniBecken(liste), { licht: false, fluss: true });
+        const tag = mit(liste, 'hinter', { stufe: 'ok', text: 'an · folgt der Lampe' });
+        assert.equal(miniBecken(tag).licht, true);
+        const steht = mit(tag, 'filter', { stufe: 'rot', text: 'an, aber ohne Strom' });
+        assert.equal(miniBecken(steht).fluss, false);
+        assert.deepEqual(miniBecken([]), { licht: false, fluss: true });
     });
 });

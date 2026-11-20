@@ -4,7 +4,9 @@
  * Look (accepted 18.11.2026): green = running, red pulsing "Aquarium prüfen" = a device is disturbed,
  * yellow "!" = hint (e.g. fertiliser almost empty), dashed = not running / no data.
  * Blue dot + bubbles only while the CO2 valve is really open, yellow dot while the background light is on.
- * A tap opens the popup "which device?". The long press stays free for the tank view (part D / phase 6).
+ * A tap opens the popup "which device?", a long press the tank view (part D / phase 6, accepted 20.11.2026).
+ * Since 20.11.2026 the tile shows a small drawn tank instead of the line icon (variant B "Mini-Becken"),
+ * no temperature: outside the limits the script turns the tile red anyway.
  */
 import React from 'react';
 
@@ -12,16 +14,29 @@ import type { RxRenderWidgetProps, RxWidgetInfo, VisRxWidgetProps, VisRxWidgetSt
 import type VisRxWidget from '@iobroker/types-vis-2/visRxWidget';
 
 import { AquariumPopup } from '../components/AquariumPopup';
-import { Icon } from '../components/Icon';
+import { BeckenAnsicht, VORLAGEN_ID } from '../components/becken/BeckenAnsicht';
+import { MiniBecken } from '../components/MiniBecken';
 import { Scaled } from '../components/Scaled';
 import { TILE_BASE, Tile } from '../components/Tile';
-import { AQ, DEFAULT_BASE, parseGeraete, type TileArt, tileView } from '../lib/aquarium';
+import { AQ, DEFAULT_BASE, miniBecken, parseGeraete, type TileArt, tileView } from '../lib/aquarium';
+import { FUTURE, IDS, PLUGS, plugPower, plugSwitch, PUMP_FIELDS, pumpId, PUMPS, type PlugKey } from '../lib/becken';
 import type { TileLook } from '../lib/model';
 import { ensureStyles, fonts, v } from '../lib/theme';
 import { MOTION_FIELDS, PREFIX, SET_INFO, motionAllowed, motionClass } from '../lib/vis';
 import { StateWatcher } from '../lib/watch';
 
 const YELLOW = '#f2c14e';
+const LONG_PRESS_MS = 500;
+
+/** data points of the tank view (watched only while it is open) */
+const BECKEN_IDS: string[] = [
+    ...Object.values(IDS),
+    ...(Object.keys(PLUGS) as PlugKey[]).flatMap(k => [plugSwitch(k), plugPower(k)]),
+    ...PUMPS.flatMap(n => PUMP_FIELDS.map(f => pumpId(n, f))),
+    ...Object.values(FUTURE),
+    VORLAGEN_ID,
+    'chihiros.0.info.proxyVersion',
+];
 
 interface AquariumRxData {
     basis: string;
@@ -34,7 +49,9 @@ interface AquariumRxData {
 
 interface AquariumState extends VisRxWidgetState {
     zhPopup: boolean;
+    zhBecken: boolean;
     zhNow: number;
+    zhVorhanden: Set<string>;
 }
 
 const LOOK: Record<TileArt, TileLook> = {
@@ -48,10 +65,12 @@ const LOOK: Record<TileArt, TileLook> = {
 export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRxWidget)<AquariumRxData, AquariumState> {
     private watcher?: StateWatcher;
     private clock?: ReturnType<typeof setInterval>;
+    private longTimer?: ReturnType<typeof setTimeout>;
+    private longFired = false;
 
     constructor(props: VisRxWidgetProps) {
         super(props);
-        this.state = { ...this.state, zhPopup: false, zhNow: Date.now() };
+        this.state = { ...this.state, zhPopup: false, zhBecken: false, zhNow: Date.now(), zhVorhanden: new Set() };
     }
 
     static getWidgetInfo(): RxWidgetInfo {
@@ -115,6 +134,7 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
         if (this.clock) {
             clearInterval(this.clock);
         }
+        clearTimeout(this.longTimer);
         this.watcher?.stop();
         super.componentWillUnmount();
     }
@@ -128,7 +148,8 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
     }
 
     private watch(): void {
-        void this.watcher?.watch(Object.values(AQ).map(n => this.id(n)));
+        const ids = Object.values(AQ).map(n => this.id(n));
+        void this.watcher?.watch(this.state.zhBecken ? [...ids, ...BECKEN_IDS] : ids);
     }
 
     private onStates = (): void => this.setState({ zhNow: Date.now() });
@@ -152,6 +173,56 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
     };
 
     private close = (): void => this.setState({ zhPopup: false });
+
+    /** the tank view: watch its data points and find out which later data points exist already */
+    private openBecken = async (): Promise<void> => {
+        this.setState({ zhBecken: true }, () => this.watch());
+        const socket = this.props.context.socket as unknown as { getObject(id: string): Promise<unknown> };
+        const vorhanden = new Set<string>();
+        for (const id of [...Object.values(FUTURE), VORLAGEN_ID]) {
+            try {
+                if (await socket.getObject(id)) {
+                    vorhanden.add(id);
+                }
+            } catch {
+                // missing or no right to read: stays read-only
+            }
+        }
+        this.setState({ zhVorhanden: vorhanden });
+    };
+
+    private closeBecken = (): void => this.setState({ zhBecken: false }, () => this.watch());
+
+    private onPointerDown = (e: React.PointerEvent): void => {
+        if (this.props.editMode || e.button > 0) {
+            return;
+        }
+        this.longFired = false;
+        clearTimeout(this.longTimer);
+        this.longTimer = setTimeout(() => {
+            this.longTimer = undefined;
+            this.longFired = true;
+            void this.openBecken();
+        }, LONG_PRESS_MS);
+    };
+
+    private onPointerUp = (): void => {
+        if (this.props.editMode) {
+            return;
+        }
+        const pressed = this.longTimer !== undefined;
+        clearTimeout(this.longTimer);
+        this.longTimer = undefined;
+        if (pressed && !this.longFired) {
+            this.open();
+        }
+        this.longFired = false;
+    };
+
+    private onPointerLeave = (): void => {
+        clearTimeout(this.longTimer);
+        this.longTimer = undefined;
+    };
 
     renderWidgetBody(props: RxRenderWidgetProps): React.JSX.Element {
         super.renderWidgetBody(props);
@@ -177,6 +248,8 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
             dots.push(v('light'));
         }
         const stand = this.watcher?.snapshot(this.id(AQ.geraete))?.ts ?? null;
+        const mini = miniBecken(liste);
+        const aktiv = view.art !== 'aus' && view.art !== 'leer';
 
         const overlay =
             view.art === 'gelb' ? (
@@ -209,11 +282,12 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
                             ariaLabel={`${name}, ${view.text}`}
                             title={view.text}
                             icon={
-                                <Icon
-                                    name="aquarium"
-                                    on={view.art !== 'aus' && view.art !== 'leer'}
-                                    animate={motion && view.art !== 'aus' && view.art !== 'leer'}
+                                <MiniBecken
+                                    licht={mini.licht && aktiv}
                                     co2={view.co2}
+                                    fluss={mini.fluss}
+                                    animate={motion && aktiv}
+                                    uid={this.props.id}
                                 />
                             }
                             led={look === 'status-on' || look === 'warn'}
@@ -223,9 +297,23 @@ export default class ZuhauseAquarium extends (window.visRxWidget as typeof VisRx
                             clickable={!this.props.editMode}
                             levelClass={levelClass}
                             scale={scale}
-                            onPointerUp={this.props.editMode ? undefined : this.open}
+                            onPointerDown={this.props.editMode ? undefined : this.onPointerDown}
+                            onPointerUp={this.props.editMode ? undefined : this.onPointerUp}
+                            onPointerLeave={this.onPointerLeave}
+                            onPointerCancel={this.onPointerLeave}
                             onKeyDown={this.props.editMode ? undefined : this.onKeyDown}
                         />
+                        {this.state.zhBecken && !this.props.editMode ? (
+                            <BeckenAnsicht
+                                val={id => this.watcher?.snapshot(id)?.val}
+                                ts={id => this.watcher?.snapshot(id)?.ts}
+                                liste={liste}
+                                vorhanden={this.state.zhVorhanden}
+                                set={(id, value) => this.props.context.setValue(id, value)}
+                                motion={motion}
+                                onClose={this.closeBecken}
+                            />
+                        ) : null}
                         {this.state.zhPopup && !this.props.editMode ? (
                             <AquariumPopup
                                 liste={liste}

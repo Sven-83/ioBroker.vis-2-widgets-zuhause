@@ -116,6 +116,17 @@ ${face('Zuhause Barlow Condensed', 600, condensed600)}
 @keyframes zh-dash{to{stroke-dashoffset:-14}}
 .zh-a-dash{animation:zh-dash 1s linear infinite}
 .zh-a-shake{animation:zh-shake .5s linear infinite}
+@keyframes zh-fish{0%{transform:translateX(0) scaleX(1)}45%{transform:translateX(15px) scaleX(1)}50%{transform:translateX(15px) scaleX(-1)}95%{transform:translateX(0) scaleX(-1)}100%{transform:translateX(0) scaleX(1)}}
+.zh-a-fish{transform-box:fill-box;transform-origin:center;animation:zh-fish 7s ease-in-out infinite}
+.zh-d-f2{animation-duration:9s;animation-delay:-3s}
+.zh-d-f3{animation-duration:8s;animation-delay:-5s}
+@keyframes zh-pearl{0%{transform:translateY(0);opacity:0}10%{opacity:.9}100%{transform:translateY(-15px);opacity:0}}
+.zh-a-pearl{animation:zh-pearl 2.6s linear infinite}
+@keyframes zh-ray{0%,100%{opacity:1}50%{opacity:.5}}
+.zh-a-ray{animation:zh-ray 5s ease-in-out infinite}
+.zh-d-r2{animation-delay:-2.5s}
+@keyframes zh-plant{0%,100%{transform:skewX(0deg)}50%{transform:skewX(5deg)}}
+.zh-a-plant{transform-box:fill-box;transform-origin:bottom;animation:zh-plant 4s ease-in-out infinite}
 .zh-d2{animation-delay:.4s}
 .zh-d3{animation-delay:.8s}
 .zh-alarm-layer{animation:zh-alarmflash .9s steps(1) infinite}

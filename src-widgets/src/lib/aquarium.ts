@@ -192,3 +192,26 @@ export function spalten(liste: Zeile[]): { links: Gruppe[]; rechts: Gruppe[] } {
         rechts: [...SPALTEN.rechts, ...extra].map(gruppe).filter(voll),
     };
 }
+
+export interface MiniBecken {
+    /** main lamp / background light on: lamp bar glows, light rays, coloured fish */
+    licht: boolean;
+    /** water flows (filter running): bubbles may rise */
+    fluss: boolean;
+}
+
+/**
+ * State of the drawn mini tank on the tile (variant B "Mini-Becken", Sven 20.11.2026).
+ * Light = the background light runs (it always follows the main lamp), flow = the filter row is ok.
+ * No temperature on the tile (Sven 20.11.2026): a temperature outside the limits turns the tile red anyway.
+ *
+ * @param liste device list of the script
+ */
+export function miniBecken(liste: Zeile[]): MiniBecken {
+    const zeile = (key: string): Zeile | undefined => liste.find(z => z.key === key);
+    const filter = zeile('filter');
+    return {
+        licht: zeile('hinter')?.stufe === 'ok',
+        fluss: !filter || filter.stufe === 'ok',
+    };
+}
