@@ -216,5 +216,18 @@
     "aquarium_base": "States of the script",
     "aquarium_base_tip": "Folder written by script.js.vis2.Aquarium (laeuft, warnung, hinweis, co2, geraete)",
     "aquarium_name": "Name",
-    "aquarium_popup_title": "Popup title"
+    "aquarium_popup_title": "Popup title",
+    "back_label": "Return to start",
+    "back_time": "Time until return (s, 0 = off)",
+    "back_time_tip": "Without a touch for this long: close popups, start page, dim",
+    "back_limit": "Wait at most while operating (s)",
+    "back_limit_tip": "A finger on a slider or an open input holds the return back this long",
+    "back_view": "View with the Jäger menu",
+    "back_widget": "Widget ID of the Jäger menu",
+    "back_widget_tip": "e.g. w000001; empty = do not switch the menu",
+    "back_menu": "Name of the start menu entry",
+    "group_dim": "Dim (Fully Kiosk)",
+    "back_dim": "Dim after the return",
+    "back_dim_tip": "Needs the JavaScript interface in Fully; a touch or motion wakes it",
+    "back_dim_level": "Dimmed brightness (%)"
 }

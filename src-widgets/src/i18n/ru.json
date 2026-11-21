@@ -216,5 +216,18 @@
     "aquarium_base": "Состояния скрипта",
     "aquarium_base_tip": "Папка, в которую пишет script.js.vis2.Aquarium (laeuft, warnung, hinweis, co2, geraete)",
     "aquarium_name": "Название",
-    "aquarium_popup_title": "Заголовок окна"
+    "aquarium_popup_title": "Заголовок окна",
+    "back_label": "Возврат на старт",
+    "back_time": "Время до возврата (с, 0 = выкл.)",
+    "back_time_tip": "Без касания столько времени: закрыть окна, стартовая страница, затемнение",
+    "back_limit": "Ждать не дольше при управлении (с)",
+    "back_limit_tip": "Палец на ползунке или открытый ввод задерживают возврат на это время",
+    "back_view": "Вид с меню Jäger",
+    "back_widget": "ID виджета меню Jäger",
+    "back_widget_tip": "напр. w000001; пусто = не переключать меню",
+    "back_menu": "Имя пункта меню стартовой страницы",
+    "group_dim": "Затемнение (Fully Kiosk)",
+    "back_dim": "Затемнять после возврата",
+    "back_dim_tip": "Нужен JavaScript-интерфейс в Fully; касание или движение будит",
+    "back_dim_level": "Яркость при затемнении (%)"
 }

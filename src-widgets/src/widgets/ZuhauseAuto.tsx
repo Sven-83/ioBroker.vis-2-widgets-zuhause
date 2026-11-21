@@ -74,7 +74,15 @@ import {
 import type { Snapshot } from '../lib/watch';
 import { formatNumber } from '../lib/model';
 import { ensureStyles, fonts } from '../lib/theme';
-import { MOTION_FIELDS, PREFIX, SET_INFO, motionAllowed, motionClass, requestTab } from '../lib/vis';
+import {
+    MOTION_FIELDS,
+    PREFIX,
+    SET_INFO,
+    motionAllowed,
+    motionClass,
+    requestTab,
+    ruecksprungZentral,
+} from '../lib/vis';
 import { StateWatcher } from '../lib/watch';
 
 const W = 1050;
@@ -618,7 +626,8 @@ export default class ZuhauseAuto extends (window.visRxWidget as typeof VisRxWidg
         const min = raw === undefined || raw === null || raw === '' ? 2 : Number(raw);
         const el = this.box.current;
         const visible = !!el && el.getClientRects().length > 0 && (typeof document === 'undefined' || !document.hidden);
-        if (!d.zurueck || this.props.editMode || !(min > 0) || !visible) {
+        // a ZuhauseRuecksprung widget on the page does this for all pages; the own timer is the fallback
+        if (!d.zurueck || this.props.editMode || !(min > 0) || !visible || ruecksprungZentral()) {
             // hidden pages start counting again when they come back
             this.lastTouch = Date.now();
             return;

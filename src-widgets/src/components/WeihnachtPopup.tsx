@@ -305,7 +305,7 @@ function DayBar({
 }
 
 export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
-    const restart = useAutoClose(p.onClose);
+    const restart = useAutoClose(p.onClose, 'weihnacht');
     const today = weekdayIndex(p.now);
     const [sel, setSel] = React.useState(0);
     const [day, setDay] = React.useState(today);

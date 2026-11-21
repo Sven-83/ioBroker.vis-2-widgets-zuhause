@@ -201,6 +201,26 @@ Für Seiten in einem Rahmen wie dem Jäger-Menü. Ohne das Widget verlässt ein 
 - Der Menüpunkt zeigt die View `Licht`. Tippt man in der Kopfzeile auf „Keller“, erscheint `Licht-Keller` im Widget, Menü und Rahmen bleiben.
 - Wird die Seite einzeln geöffnet (ohne Seiten-Wechsel), wechseln die Reiter wie bisher die ganze View.
 
+## Rücksprung
+
+Unsichtbares Widget für die View mit dem Jäger-Menü (ein Mal pro Tablet-Oberfläche).
+
+- Nach der eingestellten Zeit ohne Berührung (Standard 120 s, 0 = aus) schließt es zuerst offene Popups und
+  Detailansichten (das oberste zuerst), stellt die Seiten-Wechsel auf ihre Start-View zurück und schaltet das
+  Jäger-Menü auf den Startseiten-Eintrag (Adresse `#<View>/<Widget-ID>/<Menüname>`).
+- Danach dimmt es ein Fully-Kiosk-Tablet auf die eingestellte Helligkeit, aber nur nach einem Rücksprung, nicht
+  wenn man ohnehin auf der Startseite war. Die erste Berührung auf dem dunklen Bildschirm weckt nur, sie schaltet
+  nichts. Bewegung vor der Kamera weckt ebenfalls (Fully-Bewegungserkennung).
+- Voraussetzung fürs Dimmen: in Fully „Advanced Web Settings → Enable JavaScript Interface“ (Plus-Lizenz), am
+  besten mit URL-Whitelist. Ohne Schnittstelle (PC-Browser) wird nur zurückgesprungen.
+- Berührungen in eingebetteten Seiten derselben Adresse (z. B. Klima, Kamera) zählen mit; solange dort ein Video
+  oder ein Livebild läuft, springt es nicht zurück.
+- Finger auf einem Schieber oder eine offene Eingabe halten den Rücksprung auf, höchstens für das Sicherheitslimit
+  (Standard 300 s).
+- Lange Popups (Aquarium, Weihnacht, ioBroker-Status, Stundenplan) melden sich beim Widget an und lassen ihren
+  eigenen Timer weg; Energie, Netzwerk und Auto-Seiten schweigen mit ihrem eigenen Rücksprung. Fehlt das Widget,
+  gelten die alten Zeiten. Kurz-Popups (Licht, Dimmer, Rollo, …) schließen weiter nach ihren wenigen Sekunden.
+
 ## Etagen-Panel
 
 Die Seitenleiste neben dem Grundriss. Im Feld „Grundriss-Widget“ den Plan wählen; das Panel nutzt dessen Geräteliste. Bleibt das Feld leer (oder passt die ID nach einem View-Import nicht mehr), nimmt das Panel den einzigen Grundriss der eigenen View.

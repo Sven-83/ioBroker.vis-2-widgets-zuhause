@@ -405,6 +405,7 @@ export default class ZuhauseSchule extends (window.visRxWidget as typeof VisRxWi
                         width={Number(d.popupBreite) || 1100}
                         height={Number(d.popupHoehe) || 760}
                         autoCloseS={0}
+                        ebene="schule"
                         onClose={() => this.setState({ zhPopup: false })}
                     />
                 ) : null}

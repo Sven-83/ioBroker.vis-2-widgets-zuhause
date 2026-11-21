@@ -9,7 +9,15 @@ import type { RxRenderWidgetProps, RxWidgetInfo, VisRxWidgetProps, VisRxWidgetSt
 import type VisRxWidget from '@iobroker/types-vis-2/visRxWidget';
 
 import { ensureStyles, fonts, v } from '../lib/theme';
-import { PREFIX, SET_INFO, TAB_EVENT, nextPage, type TabRequest } from '../lib/vis';
+import {
+    PREFIX,
+    SET_INFO,
+    STARTSEITE_EVENT,
+    TAB_EVENT,
+    nextPage,
+    type StartseiteAnfrage,
+    type TabRequest,
+} from '../lib/vis';
 
 interface SeitenRxData {
     ansicht: string;
@@ -65,10 +73,12 @@ export default class ZuhauseSeiten extends (window.visRxWidget as typeof VisRxWi
         super.componentDidMount();
         ensureStyles();
         window.addEventListener(TAB_EVENT, this.onTab);
+        window.addEventListener(STARTSEITE_EVENT, this.onStartseite);
     }
 
     componentWillUnmount(): void {
         window.removeEventListener(TAB_EVENT, this.onTab);
+        window.removeEventListener(STARTSEITE_EVENT, this.onStartseite);
         super.componentWillUnmount();
     }
 
@@ -84,6 +94,21 @@ export default class ZuhauseSeiten extends (window.visRxWidget as typeof VisRxWi
         if (next) {
             e.preventDefault();
             this.setState({ zhAktuell: next });
+        }
+    };
+
+    /** Return after inactivity: report a tab other than the start view and, if asked, go back to it */
+    private onStartseite = (e: Event): void => {
+        if (this.props.editMode) {
+            return;
+        }
+        const start = this.state.rxData.ansicht || '';
+        if (!this.state.zhAktuell || this.state.zhAktuell === start) {
+            return;
+        }
+        e.preventDefault();
+        if ((e as CustomEvent<StartseiteAnfrage>).detail?.zuruecksetzen) {
+            this.setState({ zhAktuell: '' });
         }
     };
 

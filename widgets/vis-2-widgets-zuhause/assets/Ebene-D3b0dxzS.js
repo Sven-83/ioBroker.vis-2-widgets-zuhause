@@ -1,0 +1,1 @@
+import{l as e}from"./mf-BPYM8C1A.js";import{u as t}from"./vis-QIAa9YX1.js";function n(n,r,i=!0){let a=e.useId(),o=e.useRef(!1),s=e.useRef(r);return e.useLayoutEffect(()=>{s.current=r}),e.useEffect(()=>{if(!i){o.current=!1;return}let e=`${n}${a}`;return o.current=t(e,!0,()=>s.current()),()=>{t(e,!1)}},[n,a,i]),o}export{n as t};

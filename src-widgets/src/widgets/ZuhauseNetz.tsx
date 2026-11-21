@@ -31,7 +31,15 @@ import {
     type NetzTopologie,
 } from '../lib/netz';
 import { ensureStyles, fonts } from '../lib/theme';
-import { MOTION_FIELDS, PREFIX, SET_INFO, motionAllowed, motionClass, requestTab } from '../lib/vis';
+import {
+    MOTION_FIELDS,
+    PREFIX,
+    SET_INFO,
+    motionAllowed,
+    motionClass,
+    requestTab,
+    ruecksprungZentral,
+} from '../lib/vis';
 import { StateWatcher } from '../lib/watch';
 
 const W = 1357;
@@ -428,7 +436,8 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
         const el = this.box.current;
         const sichtbar =
             !!el && el.getClientRects().length > 0 && (typeof document === 'undefined' || !document.hidden);
-        if (!this.seite() || !d.zurueck || this.props.editMode || !(min > 0) || !sichtbar) {
+        // a ZuhauseRuecksprung widget on the page does this for all pages; the own timer is the fallback
+        if (!this.seite() || !d.zurueck || this.props.editMode || !(min > 0) || !sichtbar || ruecksprungZentral()) {
             // hidden pages start counting again when they come back
             this.letzteAktion = Date.now();
             return;

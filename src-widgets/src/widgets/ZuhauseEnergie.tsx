@@ -41,7 +41,7 @@ import {
 } from '../lib/energie';
 import { formatNumber } from '../lib/model';
 import { ensureStyles, fonts, v } from '../lib/theme';
-import { PREFIX, SET_INFO, motionClass, requestTab } from '../lib/vis';
+import { PREFIX, SET_INFO, motionClass, requestTab, ruecksprungZentral } from '../lib/vis';
 import { StateWatcher } from '../lib/watch';
 
 const W = 1357;
@@ -522,7 +522,8 @@ export default class ZuhauseEnergie extends (window.visRxWidget as typeof VisRxW
         const el = this.box.current;
         const sichtbar =
             !!el && el.getClientRects().length > 0 && (typeof document === 'undefined' || !document.hidden);
-        if (!this.seite() || !d.zurueck || this.props.editMode || !(min > 0) || !sichtbar) {
+        // a ZuhauseRuecksprung widget on the page does this for all pages; the own timer is the fallback
+        if (!this.seite() || !d.zurueck || this.props.editMode || !(min > 0) || !sichtbar || ruecksprungZentral()) {
             // hidden pages start counting again when they come back
             this.letzteAktion = Date.now();
             return;

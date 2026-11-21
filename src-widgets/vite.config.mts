@@ -34,6 +34,7 @@ export default {
                 './ZuhauseWeihnacht': './src/widgets/ZuhauseWeihnacht',
                 './ZuhauseHeizung': './src/widgets/ZuhauseHeizung',
                 './ZuhauseAquarium': './src/widgets/ZuhauseAquarium',
+                './ZuhauseRuecksprung': './src/widgets/ZuhauseRuecksprung',
                 './translations': './src/translations',
             },
             remotes: {},

@@ -10,23 +10,37 @@ import { HAUBE_LEVELS, HAUBE_TIMERS, type HaubePreset, presetLevelWrites, type P
 import { formatNumber } from '../lib/model';
 import { POPUP_CLOSE_MS } from '../lib/plan';
 import { fonts, v } from '../lib/theme';
+import { useEbene } from './Ebene';
 import { Icon } from './Icon';
 
-/** Timer that closes the popup; restart with the delay of the last input */
-export function useAutoClose(onClose: () => void): (ms: number) => void {
+/**
+ * Timer that closes the popup; restart with the delay of the last input.
+ * With `ebene` the popup reports itself to a ZuhauseRuecksprung widget; when one is there, it closes the popup
+ * after the central idle time and the own timer stays off (short popups pass no `ebene` and keep theirs).
+ */
+export function useAutoClose(onClose: () => void, ebene?: string): (ms: number) => void {
     const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const zentral = useEbene(ebene ?? '', onClose, !!ebene);
     // the parent passes a new function on every render (new values arrive while the popup is open);
     // a ref keeps the timer running instead of restarting it with the idle time
     const close = React.useRef(onClose);
     React.useLayoutEffect(() => {
         close.current = onClose;
     });
-    const restart = React.useCallback((ms: number): void => {
-        if (timer.current) {
-            clearTimeout(timer.current);
-        }
-        timer.current = setTimeout(() => close.current(), ms);
-    }, []);
+    const restart = React.useCallback(
+        (ms: number): void => {
+            if (timer.current) {
+                clearTimeout(timer.current);
+            }
+            if (zentral.current) {
+                return;
+            }
+            timer.current = setTimeout(() => close.current(), ms);
+        },
+        // zentral is a ref (stable), read at call time
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    );
     React.useEffect(() => {
         restart(POPUP_CLOSE_MS.idle);
         const onKey = (e: KeyboardEvent): void => {

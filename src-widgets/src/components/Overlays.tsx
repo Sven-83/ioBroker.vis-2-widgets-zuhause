@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 
 import { pinKey } from '../lib/model';
 import { fonts, v } from '../lib/theme';
+import { useEbene } from './Ebene';
 
 function Backdrop({ onClose, children }: { onClose: () => void; children: React.ReactNode }): React.JSX.Element {
     return createPortal(
@@ -171,12 +172,15 @@ export interface ViewPopupProps {
     height: number;
     /** close without any input after this many seconds (0 = never); every input restarts the time */
     autoCloseS: number;
+    /** report as a level to a ZuhauseRuecksprung widget (long popups such as the timetable) */
+    ebene?: string;
     onClose: () => void;
 }
 
 export function ViewPopup(p: ViewPopupProps): React.JSX.Element {
     const { autoCloseS, onClose } = p;
     const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    useEbene(p.ebene ?? '', onClose, !!p.ebene);
     const restart = React.useCallback((): void => {
         if (timer.current) {
             clearTimeout(timer.current);

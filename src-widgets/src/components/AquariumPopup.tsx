@@ -126,7 +126,7 @@ export function AquariumPopup(p: {
     stand: number | null;
     onClose: () => void;
 }): React.JSX.Element {
-    const restart = useAutoClose(p.onClose);
+    const restart = useAutoClose(p.onClose, 'aquarium');
     React.useEffect(() => restart(IDLE_MS), [restart]);
     const touch = (): void => restart(IDLE_MS);
 

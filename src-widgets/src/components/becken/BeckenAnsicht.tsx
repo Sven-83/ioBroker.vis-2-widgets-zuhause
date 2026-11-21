@@ -54,6 +54,7 @@ import {
     windowsText,
 } from '../../lib/becken';
 import { backSvg, frontSvg, type Modell, PIPES, type Stufe } from './schnitt';
+import { meldeEbene } from '../../lib/vis';
 import { ensureBeckenStyles } from './style';
 import { startTank } from './tank';
 
@@ -368,9 +369,13 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
     private parts: Array<{ p: SVGPathElement; L: number; d: number; v: number; el: SVGCircleElement }> = [];
     private hellBase: [number, number, number, number] | null = null;
     private model: Modell | null = null;
+    /** levels reported to a ZuhauseRuecksprung widget: the tank view, above it an open sheet */
+    private ebeneId = `becken-${Math.random().toString(36).slice(2, 8)}`;
+    private sheetGemeldet = false;
 
     componentDidMount(): void {
         ensureBeckenStyles();
+        meldeEbene(this.ebeneId, true, () => this.props.onClose());
         window.addEventListener('resize', this.fit);
         window.addEventListener('keydown', this.onKey);
         this.fit();
@@ -437,6 +442,7 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
     }
 
     componentDidUpdate(): void {
+        this.meldeSheet();
         this.collectParts();
     }
 
@@ -446,6 +452,20 @@ export class BeckenAnsicht extends React.Component<BeckenProps, S> {
         clearInterval(this.clock);
         window.removeEventListener('resize', this.fit);
         window.removeEventListener('keydown', this.onKey);
+        if (this.sheetGemeldet) {
+            meldeEbene(`${this.ebeneId}-detail`, false);
+        }
+        meldeEbene(this.ebeneId, false);
+    }
+
+    /** an open sheet is the level above the tank view: the return closes it first */
+    private meldeSheet(): void {
+        const offen = this.state.sheet !== null;
+        if (offen === this.sheetGemeldet) {
+            return;
+        }
+        this.sheetGemeldet = offen;
+        meldeEbene(`${this.ebeneId}-detail`, offen, () => this.setState({ sheet: null }));
     }
 
     private onKey = (e: KeyboardEvent): void => {

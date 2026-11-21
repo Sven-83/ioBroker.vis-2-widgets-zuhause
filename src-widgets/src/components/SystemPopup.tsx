@@ -175,7 +175,7 @@ export function SystemPopup(p: {
     now: number;
     onClose: () => void;
 }): React.JSX.Element {
-    const restart = useAutoClose(p.onClose);
+    const restart = useAutoClose(p.onClose, 'system');
     const [filter, setFilter] = React.useState<Filter>('alle');
     React.useEffect(() => restart(IDLE_MS), [restart]);
     const touch = (): void => restart(IDLE_MS);

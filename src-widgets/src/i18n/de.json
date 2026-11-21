@@ -216,5 +216,18 @@
     "aquarium_base": "Datenpunkte des Skripts",
     "aquarium_base_tip": "Ordner, in den script.js.vis2.Aquarium schreibt (laeuft, warnung, hinweis, co2, geraete)",
     "aquarium_name": "Name",
-    "aquarium_popup_title": "Titel des Popups"
+    "aquarium_popup_title": "Titel des Popups",
+    "back_label": "Rücksprung",
+    "back_time": "Zeit bis Rücksprung (s, 0 = aus)",
+    "back_time_tip": "Ohne Berührung so lange, dann Popups zu, Startseite, Dimmen",
+    "back_limit": "Höchstens warten bei Bedienung (s)",
+    "back_limit_tip": "Finger auf dem Schieber oder Eingabe offen hält den Rücksprung so lange auf",
+    "back_view": "Ansicht mit dem Jäger-Menü",
+    "back_widget": "Widget-ID des Jäger-Menüs",
+    "back_widget_tip": "z. B. w000001; leer = Menü nicht umschalten",
+    "back_menu": "Name des Startseiten-Menüpunkts",
+    "group_dim": "Dimmen (Fully Kiosk)",
+    "back_dim": "Nach dem Rücksprung dimmen",
+    "back_dim_tip": "Braucht in Fully die JavaScript-Schnittstelle; Berührung oder Bewegung weckt",
+    "back_dim_level": "Helligkeit gedimmt (%)"
 }

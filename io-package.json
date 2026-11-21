@@ -68,7 +68,8 @@
                     "ZuhauseSystem",
                     "ZuhauseWeihnacht",
                     "ZuhauseHeizung",
-                    "ZuhauseAquarium"
+                    "ZuhauseAquarium",
+                    "ZuhauseRuecksprung"
                 ]
             }
         },

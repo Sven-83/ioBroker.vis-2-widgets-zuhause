@@ -107,3 +107,49 @@ export function nextPage(current: string, req: TabRequest | undefined): string |
     }
     return req.nach;
 }
+
+// ---------------------------------------------------------------- return after inactivity
+
+/**
+ * Event a popup or detail view sends when it opens or closes, so a ZuhauseRuecksprung widget can close it
+ * after the idle time (topmost first). `schliessen` must close exactly this level.
+ */
+export const EBENE_EVENT = 'zuhause-ebene';
+
+export interface EbeneMeldung {
+    id: string;
+    offen: boolean;
+    schliessen?: () => void;
+}
+
+/** Reports a level as open (with its close function) or closed; true = a ZuhauseRuecksprung widget listens */
+export function meldeEbene(id: string, offen: boolean, schliessen?: () => void): boolean {
+    const ev = new CustomEvent<EbeneMeldung>(EBENE_EVENT, { detail: { id, offen, schliessen }, cancelable: true });
+    return !window.dispatchEvent(ev);
+}
+
+/**
+ * Event of the ZuhauseRuecksprung widget to the ZuhauseSeiten widgets. With `zuruecksetzen` false it only asks;
+ * a ZuhauseSeiten widget that shows a tab other than its start view answers with preventDefault() and, with
+ * `zuruecksetzen` true, also goes back to its start view.
+ */
+export const STARTSEITE_EVENT = 'zuhause-startseite';
+
+export interface StartseiteAnfrage {
+    zuruecksetzen: boolean;
+}
+
+/** true = at least one ZuhauseSeiten widget was (and, with zuruecksetzen, is no longer) away from its start view */
+export function requestStartseite(zuruecksetzen: boolean): boolean {
+    const ev = new CustomEvent<StartseiteAnfrage>(STARTSEITE_EVENT, { detail: { zuruecksetzen }, cancelable: true });
+    return !window.dispatchEvent(ev);
+}
+
+/** Event the ZuhauseRuecksprung widget sends when it is there; widgets with an own return timer stay silent then */
+export const RUECKSPRUNG_AKTIV_EVENT = 'zuhause-ruecksprung-aktiv';
+
+/** true = a ZuhauseRuecksprung widget is on the page and switched on */
+export function ruecksprungZentral(): boolean {
+    const ev = new CustomEvent<null>(RUECKSPRUNG_AKTIV_EVENT, { detail: null, cancelable: true });
+    return !window.dispatchEvent(ev);
+}
