@@ -109,16 +109,27 @@ export function parseGeraete(v: unknown): Map<string, NetzGeraet> {
 }
 
 /** What the tile shows */
-export type KachelZustand = 'ok' | 'langsam' | 'update' | 'updateLaeuft' | 'gestoert' | 'keineDaten';
+export type KachelZustand = 'ok' | 'langsam' | 'update' | 'updateLaeuft' | 'gestoert' | 'keineDaten' | 'zertifikat';
 
 /**
- * Look of the tile. Failure before everything else, then a running update, then slow links, then an update.
+ * Look of the tile. A changed certificate of the console first (a task for the user, not a failure: the data
+ * is only old because the adapter waits for the confirmation), then failure, a running update, slow links,
+ * an update.
  *
  * @param summaryState - summary.state of the adapter (ok, degraded, offline, stale)
  * @param topo - topology.json
  * @param connected - info.connection (false = no connection to the console)
+ * @param certificateChanged - info.certificateChanged (true = confirm the new certificate in the settings)
  */
-export function kachelZustand(summaryState: unknown, topo: NetzTopologie | null, connected: unknown): KachelZustand {
+export function kachelZustand(
+    summaryState: unknown,
+    topo: NetzTopologie | null,
+    connected: unknown,
+    certificateChanged: unknown = false,
+): KachelZustand {
+    if (certificateChanged === true) {
+        return 'zertifikat';
+    }
     if (summaryState === 'stale' || !topo || !topo.nodes.length || connected === false) {
         return 'keineDaten';
     }
@@ -145,6 +156,7 @@ export const KACHEL_TEXT: Record<KachelZustand, string> = {
     updateLaeuft: 'Update läuft',
     gestoert: 'Netz gestört',
     keineDaten: 'Netzwerk',
+    zertifikat: 'Zertifikat prüfen',
 };
 
 export const KACHEL_STATUS: Record<KachelZustand, string> = {
@@ -154,6 +166,7 @@ export const KACHEL_STATUS: Record<KachelZustand, string> = {
     updateLaeuft: 'Firmware-Update läuft',
     gestoert: 'Gerät ausgefallen',
     keineDaten: 'Keine aktuellen Daten',
+    zertifikat: 'Zertifikat der Konsole geändert – in den Instanz-Einstellungen bestätigen',
 };
 
 // ---------------------------------------------------------------- map

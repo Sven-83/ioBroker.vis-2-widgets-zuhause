@@ -47,7 +47,7 @@ const H = 900;
 const DEFAULT_INSTANCE = 'unifi-map.0';
 /** the detail box closes after this time without touch, like the popups (POPUP_CLOSE_MS.idle) */
 const DETAIL_ZU_MS = 5000;
-const SHOWN = ['summary.state', 'summary.json', 'topology.json', 'info.connection'] as const;
+const SHOWN = ['summary.state', 'summary.json', 'topology.json', 'info.connection', 'info.certificateChanged'] as const;
 
 interface NetzRxData {
     darstellung: string;
@@ -170,7 +170,7 @@ function Ecke({ zustand, animate }: { zustand: KachelZustand; animate: boolean }
             </span>
         );
     }
-    const farbe = zustand === 'langsam' ? YELLOW : zustand === 'updateLaeuft' ? BLUE : '';
+    const farbe = zustand === 'langsam' || zustand === 'zertifikat' ? YELLOW : zustand === 'updateLaeuft' ? BLUE : '';
     if (!farbe) {
         return null;
     }
@@ -513,7 +513,12 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
     private renderKachel(): React.JSX.Element {
         const d = this.state.rxData;
         const topo = parseTopologie(this.val('topology.json'));
-        const zustand = kachelZustand(this.val('summary.state'), topo, this.val('info.connection'));
+        const zustand = kachelZustand(
+            this.val('summary.state'),
+            topo,
+            this.val('info.connection'),
+            this.val('info.certificateChanged'),
+        );
         const levelClass = motionClass(d.animationStufe, d.nachtAus, new Date());
         const animate = motionAllowed(levelClass) && d.animation !== 'keine';
         const name = d.label || 'Netzwerk';
@@ -529,7 +534,13 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
             <Scaled base={TILE_BASE}>
                 {scale => (
                     <Tile
-                        look={zustand === 'gestoert' ? 'warn' : zustand === 'keineDaten' ? 'status-off' : 'status-on'}
+                        look={
+                            zustand === 'gestoert'
+                                ? 'warn'
+                                : zustand === 'keineDaten' || zustand === 'zertifikat'
+                                  ? 'status-off'
+                                  : 'status-on'
+                        }
                         label={label}
                         ariaLabel={`${name}, ${KACHEL_STATUS[zustand]}`}
                         title={KACHEL_STATUS[zustand]}
@@ -568,7 +579,12 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
     private renderSeite(): React.JSX.Element {
         const d = this.state.rxData;
         const topo = parseTopologie(this.val('topology.json'));
-        const zustand = kachelZustand(this.val('summary.state'), topo, this.val('info.connection'));
+        const zustand = kachelZustand(
+            this.val('summary.state'),
+            topo,
+            this.val('info.connection'),
+            this.val('info.certificateChanged'),
+        );
         const levelClass = motionClass(d.animationStufe, d.nachtAus, new Date());
         const real = topo ? topo.nodes.filter(n => !n.virtual) : [];
         const aus = real.filter(n => n.state === 'offline');
@@ -578,7 +594,10 @@ export default class ZuhauseNetz extends (window.visRxWidget as typeof VisRxWidg
         let titel = 'Netzwerk läuft';
         let farbe = '#6fe08a';
         let cls = '';
-        if (zustand === 'keineDaten') {
+        if (zustand === 'zertifikat') {
+            titel = 'Zertifikat prüfen – in den Instanz-Einstellungen bestätigen';
+            farbe = YELLOW;
+        } else if (zustand === 'keineDaten') {
             titel = 'Keine aktuellen Daten';
             farbe = '#7d7b75';
         } else if (aus.length) {

@@ -78,6 +78,11 @@ describe('netz', () => {
             assert.equal(kachelZustand('ok', null, true), 'keineDaten');
             assert.equal(kachelZustand('ok', ok, false), 'keineDaten');
         });
+        it('shows a changed certificate as a hint, before stale data', () => {
+            assert.equal(kachelZustand('stale', ok, false, true), 'zertifikat');
+            assert.equal(kachelZustand('ok', ok, true, false), 'ok');
+            assert.equal(kachelZustand('ok', ok, true, 'true'), 'ok');
+        });
         it('shows a failure before everything else', () => {
             const t = topo([
                 knoten('gw'),
