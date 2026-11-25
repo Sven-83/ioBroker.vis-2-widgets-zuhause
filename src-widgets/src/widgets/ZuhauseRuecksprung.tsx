@@ -13,6 +13,7 @@ import type { RxRenderWidgetProps, RxWidgetInfo, VisRxWidgetProps, VisRxWidgetSt
 import type VisRxWidget from '@iobroker/types-vis-2/visRxWidget';
 
 import {
+    bewegungWeckt,
     DEFAULT_LIMIT_S,
     DEFAULT_ZEIT_S,
     istStartHash,
@@ -72,6 +73,7 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
     private ebenen: { id: string; schliessen?: () => void }[] = [];
     private letzteBewegung = 0;
     private gedimmt = false;
+    private gedimmtSeit = 0;
     /** the brightness was really lowered (Fully interface present), so waking has to raise it again */
     private dimmWirkt = false;
     private fenster = new WeakSet<Window>();
@@ -173,7 +175,7 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
             // time starts again from there. While bright it is ignored: the camera reports noise as motion all the
             // time in dim light, the screen would never dim. It never holds a page or popup open either.
             (window as unknown as Record<string, () => void>)[WACH_FN] = () => {
-                if (this.gedimmt) {
+                if (bewegungWeckt(this.gedimmt, this.gedimmtSeit, Date.now())) {
                     this.letzteBewegung = Date.now();
                     this.aufwecken(true);
                 }
@@ -381,6 +383,7 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
 
     private dimmen(): void {
         this.gedimmt = true;
+        this.gedimmtSeit = Date.now();
         const gedimmt = this.prozent(this.state.rxData.hellGedimmt, 10);
         if (gedimmt >= this.prozent(this.state.rxData.hellWach, 100)) {
             return;

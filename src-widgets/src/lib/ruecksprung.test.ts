@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+    BEWEGUNG_SPERRE_MS,
+    bewegungWeckt,
     DEFAULT_LIMIT_S,
     DEFAULT_ZEIT_S,
     istStartHash,
@@ -110,6 +112,19 @@ describe('return after inactivity', () => {
             art: 'warten',
             inMs: 60_000,
         });
+    });
+});
+
+describe('wake by motion', () => {
+    it('only wakes a dimmed screen', () => {
+        assert.equal(bewegungWeckt(false, 0, 100_000), false);
+        assert.equal(bewegungWeckt(true, 0, 100_000), true);
+    });
+
+    it('ignores the motion the dimming itself causes in the camera image', () => {
+        assert.equal(bewegungWeckt(true, 100_000, 100_000), false);
+        assert.equal(bewegungWeckt(true, 100_000, 100_000 + BEWEGUNG_SPERRE_MS - 1), false);
+        assert.equal(bewegungWeckt(true, 100_000, 100_000 + BEWEGUNG_SPERRE_MS), true);
     });
 });
 

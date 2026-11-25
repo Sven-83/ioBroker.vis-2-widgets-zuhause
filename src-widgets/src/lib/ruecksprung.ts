@@ -42,6 +42,16 @@ export type RuecksprungSchritt =
 
 export const DEFAULT_ZEIT_S = 120;
 export const DEFAULT_LIMIT_S = 300;
+/**
+ * Motion right after dimming is ignored this long: the darker screen changes the camera image and Fully reports
+ * that as motion, which would wake the tablet at once and it would never stay dimmed.
+ */
+export const BEWEGUNG_SPERRE_MS = 5_000;
+
+/** Whether a motion report wakes the screen: only when dimmed, and not caused by the dimming itself */
+export function bewegungWeckt(gedimmt: boolean, gedimmtSeit: number, now: number): boolean {
+    return gedimmt && now - gedimmtSeit >= BEWEGUNG_SPERRE_MS;
+}
 const MIN_ZEIT_S = 10;
 const MAX_ZEIT_S = 3600;
 
