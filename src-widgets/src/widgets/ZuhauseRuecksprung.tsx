@@ -1,7 +1,8 @@
 /*
  * VIS-2 widget "Rücksprung": invisible at runtime. After the idle time it closes open popups and details
- * (topmost first), goes back to the start tab and the start menu entry of the Jäger layout, and then dims the
- * screen of a Fully Kiosk tablet. A touch wakes it again. Time adjustable, 0 = off (WCAG 2.2 SC 2.2.1).
+ * (topmost first), goes back to the start tab and the start menu entry of the Jäger layout. On the start page
+ * the screen of a Fully Kiosk tablet is dimmed after the idle time without touch or motion; a touch or motion
+ * sets the wake brightness again. Time adjustable, 0 = off (WCAG 2.2 SC 2.2.1).
  * Touches inside frames of the same origin (climate, camera) count too; nothing happens while a video or a
  * live image plays there.
  */
@@ -48,6 +49,7 @@ interface RuecksprungRxData {
     startMenue: string;
     dimmen: boolean;
     hellGedimmt: number | string;
+    hellWach: number | string;
 }
 
 const WACH_FN = '__zuhauseRuecksprungWach';
@@ -68,9 +70,10 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
     private letzteAktivitaet = Date.now();
     private bedienungSeit: number | null = null;
     private ebenen: { id: string; schliessen?: () => void }[] = [];
-    private zurueckgesprungen = false;
+    private letzteBewegung = 0;
     private gedimmt = false;
-    private hellVorher: number | null = null;
+    /** the brightness was really lowered (Fully interface present), so waking has to raise it again */
+    private dimmWirkt = false;
     private fenster = new WeakSet<Window>();
     private alive = false;
     private sperreWartetAufLoslassen = false;
@@ -128,6 +131,15 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
                             max: 100,
                             default: 10,
                         },
+                        {
+                            name: 'hellWach',
+                            type: 'slider',
+                            label: 'back_wake_level',
+                            tooltip: 'back_wake_level_tip',
+                            min: 1,
+                            max: 100,
+                            default: 100,
+                        },
                     ],
                 },
             ],
@@ -157,13 +169,11 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
         this.beobachte(window);
         const fully = this.fully();
         if (fully?.bind) {
-            // motion in front of the tablet wakes the screen (needs Fully's motion detection to be running)
-            // motion only wakes: still on the start page after a return, it dims again after the idle time
+            // motion in front of the tablet wakes the screen and keeps it bright (needs Fully's motion detection);
+            // it does not count as a touch, so it never holds a page or popup open
             (window as unknown as Record<string, () => void>)[WACH_FN] = () => {
-                if (this.gedimmt) {
-                    this.letzteAktivitaet = Date.now();
-                    this.aufwecken(true);
-                }
+                this.letzteBewegung = Date.now();
+                this.aufwecken(true);
             };
             try {
                 fully.bind('onMotion', `window.${WACH_FN} && window.${WACH_FN}();`);
@@ -171,6 +181,8 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
                 // interface switched off: no wake by motion
             }
         }
+        // start bright: after a reload the tablet may still be dimmed from before
+        this.hellSetzen(this.prozent(this.state.rxData.hellWach, 100));
         this.tick = setInterval(() => this.pruefe(), TICK_MS);
     }
 
@@ -221,7 +233,6 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
         if (e.type === 'pointerdown' || e.type === 'touchstart') {
             this.bedienungSeit = this.bedienungSeit ?? this.letzteAktivitaet;
         }
-        this.zurueckgesprungen = false;
         // a finger: keep the catch layer until it is lifted; keys and other input: remove it at once
         this.aufwecken(e.type !== 'pointerdown' && e.type !== 'touchstart');
     };
@@ -345,28 +356,35 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
         }
     }
 
-    private dimmen(): void {
-        this.gedimmt = true;
+    // eslint-disable-next-line class-methods-use-this
+    private prozent(raw: unknown, def: number): number {
+        const n = Number(raw);
+        return Math.max(1, Math.min(100, Number.isFinite(n) && n > 0 ? n : def));
+    }
+
+    /** Fully brightness 0…255 from percent; false = no interface (PC browser) or it failed */
+    private hellSetzen(prozent: number): boolean {
         const fully = this.fully();
         if (!this.state.rxData.dimmen || !fully?.setScreenBrightness) {
-            return;
+            return false;
         }
         try {
-            // without the current brightness it could not be restored: then do not dim at all
-            const vorher = fully.getScreenBrightness?.();
-            if (typeof vorher !== 'number' || !(vorher > 0)) {
-                return;
-            }
-            const prozent = Math.max(1, Math.min(100, Number(this.state.rxData.hellGedimmt) || 10));
-            const ziel = Math.round((prozent * 255) / 100);
-            if (ziel >= vorher) {
-                return;
-            }
-            this.hellVorher = vorher;
-            fully.setScreenBrightness(ziel);
-            this.setState({ zhSperre: true });
+            fully.setScreenBrightness(Math.round((prozent * 255) / 100));
+            return true;
         } catch {
-            this.hellVorher = null;
+            return false;
+        }
+    }
+
+    private dimmen(): void {
+        this.gedimmt = true;
+        const gedimmt = this.prozent(this.state.rxData.hellGedimmt, 10);
+        if (gedimmt >= this.prozent(this.state.rxData.hellWach, 100)) {
+            return;
+        }
+        this.dimmWirkt = this.hellSetzen(gedimmt);
+        if (this.dimmWirkt) {
+            this.setState({ zhSperre: true });
         }
     }
 
@@ -384,15 +402,10 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
                 this.sperreAus(SPERRE_MAX_MS);
             }
         }
-        const fully = this.fully();
-        if (this.hellVorher !== null && fully?.setScreenBrightness) {
-            try {
-                fully.setScreenBrightness(this.hellVorher);
-            } catch {
-                // interface gone
-            }
+        if (this.dimmWirkt) {
+            this.hellSetzen(this.prozent(this.state.rxData.hellWach, 100));
         }
-        this.hellVorher = null;
+        this.dimmWirkt = false;
     }
 
     private pruefe(): void {
@@ -418,7 +431,7 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
                 medienLaufen: medien,
                 ebenen: this.ebenen.map(x => x.id),
                 aufStartseite: this.aufStartseite(),
-                zurueckgesprungen: this.zurueckgesprungen,
+                letzteBewegung: this.letzteBewegung,
                 gedimmt: this.gedimmt,
             });
             if (schritt.art === 'warten') {
@@ -434,7 +447,6 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
                 }
             } else if (schritt.art === 'startseite') {
                 this.zurStartseite();
-                this.zurueckgesprungen = true;
                 this.bedienungSeit = null;
                 // the menu needs a moment; dimming follows in a later tick
                 return;

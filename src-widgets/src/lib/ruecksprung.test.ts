@@ -22,7 +22,7 @@ function lage(over: Partial<RuecksprungLage> = {}): RuecksprungLage {
         medienLaufen: false,
         ebenen: [],
         aufStartseite: false,
-        zurueckgesprungen: false,
+        letzteBewegung: 0,
         gedimmt: false,
         ...over,
     };
@@ -58,16 +58,29 @@ describe('return after inactivity', () => {
         });
     });
 
-    it('dims only right after a return, once', () => {
+    it('dims on the start page after the idle time, also without a return, once', () => {
         const start = { now: 500_000, aufStartseite: true };
-        assert.deepEqual(naechsterSchritt(CFG, lage({ ...start, zurueckgesprungen: true })), { art: 'dimmen' });
-        assert.deepEqual(naechsterSchritt(CFG, lage({ ...start, zurueckgesprungen: true, gedimmt: true })), {
+        assert.deepEqual(naechsterSchritt(CFG, lage(start)), { art: 'dimmen' });
+        assert.deepEqual(naechsterSchritt(CFG, lage({ ...start, gedimmt: true })), { art: 'warten', inMs: null });
+    });
+
+    it('a touch on the start page starts the dim time again', () => {
+        assert.deepEqual(
+            naechsterSchritt(CFG, lage({ now: 500_000, letzteAktivitaet: 450_000, aufStartseite: true })),
+            { art: 'warten', inMs: 70_000 },
+        );
+    });
+
+    it('motion keeps the screen bright, but does not hold a page or popup open', () => {
+        const bewegt = { now: 500_000, letzteBewegung: 450_000 };
+        assert.deepEqual(naechsterSchritt(CFG, lage({ ...bewegt, aufStartseite: true })), {
             art: 'warten',
-            inMs: null,
+            inMs: 70_000,
         });
-        assert.deepEqual(naechsterSchritt(CFG, lage({ ...start, zurueckgesprungen: false })), {
-            art: 'warten',
-            inMs: null,
+        assert.deepEqual(naechsterSchritt(CFG, lage({ ...bewegt, ebenen: ['popup'] })), { art: 'ebene', id: 'popup' });
+        assert.deepEqual(naechsterSchritt(CFG, lage(bewegt)), { art: 'startseite' });
+        assert.deepEqual(naechsterSchritt(CFG, lage({ ...bewegt, now: 570_000, aufStartseite: true })), {
+            art: 'dimmen',
         });
     });
 

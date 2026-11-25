@@ -5,7 +5,9 @@
  * Order after the idle time has passed:
  *   1. close the topmost open level (detail, then popup, …) – one per step, the caller asks again at once
  *   2. leave a menu page or tab and show the start page
- *   3. dim the screen, but only right after such a return (never when nobody left the start page)
+ *   3. on the start page: dim the screen once neither a touch nor motion in front of the tablet came for the
+ *      idle time (also when nobody left the start page). Motion only keeps the screen bright, it does not hold
+ *      a page or popup open – that is up to touches alone.
  * Nothing happens while a video or live image plays, or while a finger is down / an input has focus –
  * the latter at most for the safety limit, so a stuck touch cannot keep a page open forever.
  */
@@ -29,8 +31,8 @@ export interface RuecksprungLage {
     ebenen: readonly string[];
     /** the start page is shown (menu entry and tab) */
     aufStartseite: boolean;
-    /** the start page was reached by a return and nobody touched the screen since */
-    zurueckgesprungen: boolean;
+    /** time of the last motion in front of the tablet (Fully camera); 0 = none */
+    letzteBewegung: number;
     /** the screen is dimmed already */
     gedimmt: boolean;
 }
@@ -76,10 +78,14 @@ export function naechsterSchritt(cfg: RuecksprungConfig, l: RuecksprungLage): Ru
     if (!l.aufStartseite) {
         return { art: 'startseite' };
     }
-    if (l.zurueckgesprungen && !l.gedimmt) {
-        return { art: 'dimmen' };
+    if (l.gedimmt) {
+        return { art: 'warten', inMs: null };
     }
-    return { art: 'warten', inMs: null };
+    const dimmBereit = l.letzteBewegung + cfg.zeitMs;
+    if (l.now < dimmBereit) {
+        return { art: 'warten', inMs: dimmBereit - l.now };
+    }
+    return { art: 'dimmen' };
 }
 
 // ---------------------------------------------------------------- Jäger menu path
