@@ -5,9 +5,9 @@
  * Order after the idle time has passed:
  *   1. close the topmost open level (detail, then popup, …) – one per step, the caller asks again at once
  *   2. leave a menu page or tab and show the start page
- *   3. on the start page: dim the screen once neither a touch nor motion in front of the tablet came for the
- *      idle time (also when nobody left the start page). Motion only keeps the screen bright, it does not hold
- *      a page or popup open – that is up to touches alone.
+ *   3. on the start page: dim the screen once no touch came for the idle time (also when nobody left the start
+ *      page). Motion in front of the tablet wakes a dimmed screen, then the idle time starts again; it never
+ *      holds a page or popup open – that is up to touches alone.
  * Nothing happens while a video or live image plays, or while a finger is down / an input has focus –
  * the latter at most for the safety limit, so a stuck touch cannot keep a page open forever.
  */
@@ -31,7 +31,7 @@ export interface RuecksprungLage {
     ebenen: readonly string[];
     /** the start page is shown (menu entry and tab) */
     aufStartseite: boolean;
-    /** time of the last motion in front of the tablet (Fully camera); 0 = none */
+    /** time the dimmed screen was last woken by motion in front of the tablet (Fully camera); 0 = never */
     letzteBewegung: number;
     /** the screen is dimmed already */
     gedimmt: boolean;

@@ -228,7 +228,7 @@
     "back_menu": "Name of the start menu entry",
     "group_dim": "Dim (Fully Kiosk)",
     "back_dim": "Dim on the start page",
-    "back_dim_tip": "After the idle time without touch or motion; needs the JavaScript interface in Fully, a touch or motion wakes it",
+    "back_dim_tip": "After the idle time without a touch; needs the JavaScript interface in Fully, a touch or motion wakes it",
     "back_dim_level": "Dimmed brightness (%)",
     "back_wake_level": "Wake brightness (%)",
     "back_wake_level_tip": "On waking and after the page loads; 100 % = 255"

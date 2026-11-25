@@ -169,11 +169,14 @@ export default class ZuhauseRuecksprung extends (window.visRxWidget as typeof Vi
         this.beobachte(window);
         const fully = this.fully();
         if (fully?.bind) {
-            // motion in front of the tablet wakes the screen and keeps it bright (needs Fully's motion detection);
-            // it does not count as a touch, so it never holds a page or popup open
+            // motion in front of the tablet only wakes a dimmed screen (needs Fully's motion detection); the idle
+            // time starts again from there. While bright it is ignored: the camera reports noise as motion all the
+            // time in dim light, the screen would never dim. It never holds a page or popup open either.
             (window as unknown as Record<string, () => void>)[WACH_FN] = () => {
-                this.letzteBewegung = Date.now();
-                this.aufwecken(true);
+                if (this.gedimmt) {
+                    this.letzteBewegung = Date.now();
+                    this.aufwecken(true);
+                }
             };
             try {
                 fully.bind('onMotion', `window.${WACH_FN} && window.${WACH_FN}();`);

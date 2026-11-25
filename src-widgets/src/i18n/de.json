@@ -228,7 +228,7 @@
     "back_menu": "Name des Startseiten-Menüpunkts",
     "group_dim": "Dimmen (Fully Kiosk)",
     "back_dim": "Auf der Startseite dimmen",
-    "back_dim_tip": "Nach der Wartezeit ohne Berührung und ohne Bewegung; braucht in Fully die JavaScript-Schnittstelle, Berührung oder Bewegung weckt",
+    "back_dim_tip": "Nach der Wartezeit ohne Berührung; braucht in Fully die JavaScript-Schnittstelle, Berührung oder Bewegung weckt",
     "back_dim_level": "Helligkeit gedimmt (%)",
     "back_wake_level": "Helligkeit wach (%)",
     "back_wake_level_tip": "Beim Aufwecken und nach dem Laden der Seite; 100 % = 255"

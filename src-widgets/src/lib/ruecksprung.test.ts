@@ -71,7 +71,7 @@ describe('return after inactivity', () => {
         );
     });
 
-    it('motion keeps the screen bright, but does not hold a page or popup open', () => {
+    it('after a wake by motion it dims again only after the idle time, a page or popup still closes', () => {
         const bewegt = { now: 500_000, letzteBewegung: 450_000 };
         assert.deepEqual(naechsterSchritt(CFG, lage({ ...bewegt, aufStartseite: true })), {
             art: 'warten',
