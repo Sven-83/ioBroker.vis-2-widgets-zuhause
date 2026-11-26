@@ -43,6 +43,11 @@ export interface PlanDevice {
     oidPosition?: string;
     /** blind is moving (slats animation) */
     oidFaehrt?: string;
+    /**
+     * blind: base of the rollo script (e.g. 0_userdata.0.rollo.r1); then position, moving, target and the
+     * calibration come from its data points and oidPosition/oidFaehrt/invertieren are not needed
+     */
+    rollo?: string;
     /** smoke detector: own detection (has priority) */
     oidRauch?: string;
     /** smoke detector: driven as siren by the alarm adapter */
@@ -120,7 +125,117 @@ export function deviceOids(d: PlanDevice): string[] {
         d.oidSirene,
         d.oidEmpfang,
         d.oidBatterie,
+        ...scriptOids(d),
     ].filter((id): id is string => !!id);
+}
+
+// ---------------------------------------------------------------- rollo script (calibration, live position)
+
+/** Data points of the rollo script for one blind */
+export interface BlindScript {
+    /** visible % 0 (closed) - 100 (open), live; writing (ack false) drives */
+    position: string;
+    faehrt: string;
+    /** visible target while moving */
+    ziel: string;
+    /** Shelly position 0-100 */
+    roh: string;
+    /** JSON { "25": x, "50": y, "75": z }, "" = linear */
+    kurve: string;
+    /** drive in Shelly % (calibration) */
+    kalibrieren: string;
+}
+
+export function blindScript(d: PlanDevice): BlindScript | null {
+    const base = (d.rollo || '').trim().replace(/\.+$/, '');
+    if (d.typ !== 'rollo' || !base) {
+        return null;
+    }
+    return {
+        position: `${base}.position`,
+        faehrt: `${base}.faehrt`,
+        ziel: `${base}.ziel`,
+        roh: `${base}.roh`,
+        kurve: `${base}.kurve`,
+        kalibrieren: `${base}.kalibrieren.ziel`,
+    };
+}
+
+function scriptOids(d: PlanDevice): string[] {
+    const s = blindScript(d);
+    return s ? [s.position, s.faehrt, s.ziel, s.roh, s.kurve] : [];
+}
+
+export const CURVE_POINTS = [25, 50, 75] as const;
+export type CurvePoint = (typeof CURVE_POINTS)[number];
+/** calibration: Shelly % for the visible points 25/50/75 (missing = not calibrated) */
+export type Curve = Partial<Record<CurvePoint, number>>;
+
+/** Reads the curve of the script; anything invalid gives an empty (linear) curve, like the script does */
+export function parseCurve(raw: unknown): Curve {
+    let obj: unknown = raw;
+    if (typeof raw === 'string') {
+        if (!raw.trim()) {
+            return {};
+        }
+        try {
+            obj = JSON.parse(raw);
+        } catch {
+            return {};
+        }
+    }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+        return {};
+    }
+    const c: Curve = {};
+    for (const p of CURVE_POINTS) {
+        const n = (obj as Record<string, unknown>)[String(p)];
+        if (typeof n === 'number' && Number.isFinite(n) && n > 0 && n < 100) {
+            c[p] = Math.round(n);
+        }
+    }
+    return curveValid(c) ? c : {};
+}
+
+/** Knots incl. 0/0 and 100/100: [visible, Shelly] */
+export function curveKnots(c: Curve): [number, number][] {
+    const k: [number, number][] = [[0, 0]];
+    for (const p of CURVE_POINTS) {
+        if (c[p] !== undefined) {
+            k.push([p, c[p]]);
+        }
+    }
+    k.push([100, 100]);
+    return k;
+}
+
+/** Shelly values must rise from point to point (and lie between 0 and 100) */
+export function curveValid(c: Curve): boolean {
+    const k = curveKnots(c);
+    return k.every((x, i) => i === 0 || (x[1] > k[i - 1][1] && x[1] <= 100));
+}
+
+function interpolate(c: Curve, x: number, from: 0 | 1, to: 0 | 1): number {
+    const k = curveKnots(c);
+    const v = Math.max(0, Math.min(100, x));
+    for (let i = 1; i < k.length; i++) {
+        if (v <= k[i][from]) {
+            const a = k[i - 1];
+            const b = k[i];
+            return a[to] + ((v - a[from]) / (b[from] - a[from])) * (b[to] - a[to]);
+        }
+    }
+    return 100;
+}
+
+/** visible % -> Shelly % */
+export function curveToRaw(c: Curve, visible: number): number {
+    return Math.round(interpolate(c, visible, 0, 1));
+}
+
+/** Shelly % -> visible % */
+export function curveToVisible(c: Curve, raw: number): number {
+    return Math.round(interpolate(c, raw, 1, 0));
 }
 
 // ---------------------------------------------------------------- state of a device
@@ -136,12 +251,20 @@ export function dimLevel(d: PlanDevice, val: ValueOf): number {
 
 /** Blind position 0 (closed) - 100 (open) */
 export function blindPosition(d: PlanDevice, val: ValueOf): number {
-    const n = Number(val(d.oidPosition || d.oid));
+    const s = blindScript(d);
+    const n = Number(val(s ? s.position : d.oidPosition || d.oid));
     if (!Number.isFinite(n)) {
         return 0;
     }
     const p = Math.max(0, Math.min(100, n));
-    return d.invertieren ? 100 - p : p;
+    // the script always counts 0 = closed
+    return d.invertieren && !s ? 100 - p : p;
+}
+
+/** Blind is moving (from the script or oidFaehrt) */
+export function blindMoving(d: PlanDevice, val: ValueOf): boolean {
+    const id = blindScript(d)?.faehrt || d.oidFaehrt;
+    return !!id && isOn(val(id));
 }
 
 /** Light, socket, device: on; contact: open; detector: triggered */
@@ -221,7 +344,7 @@ export function pinState(d: PlanDevice, val: ValueOf, lang: string): PinState {
                 icon,
                 label: p <= 0 ? (lang === 'en' ? 'closed' : 'zu') : `${Math.round(p)} %`,
                 shade: 100 - p,
-                animate: !!d.oidFaehrt && isOn(val(d.oidFaehrt)),
+                animate: blindMoving(d, val),
             };
         }
         case 'fenster':
@@ -323,9 +446,8 @@ export function tapAction(d: PlanDevice, val: ValueOf): PinAction {
             }
             return d.oidHelligkeit ? { kind: 'write', oid: d.oidHelligkeit, value: on ? 0 : 100 } : { kind: 'none' };
         case 'rollo': {
-            const id = d.oidSchreiben || d.oidPosition || d.oid;
-            const next = on ? 0 : 100;
-            return id ? { kind: 'write', oid: id, value: d.invertieren ? 100 - next : next } : { kind: 'none' };
+            const w = blindWrite(d, on ? 0 : 100);
+            return w ? { kind: 'write', oid: w.oid, value: w.value } : { kind: 'none' };
         }
         case 'tor':
             // Only with an explicit write data point: the oid of a gate is usually its end switch
@@ -348,15 +470,19 @@ export function longPressPopup(d: PlanDevice): 'dimmer' | 'rollo' | null {
 
 /** Value to write for a blind position (0 closed - 100 open) */
 export function blindWrite(d: PlanDevice, pos: number): { oid: string; value: number } | null {
-    const id = d.oidSchreiben || d.oidPosition || d.oid;
     const p = Math.max(0, Math.min(100, Math.round(pos)));
+    const s = blindScript(d);
+    if (s) {
+        return { oid: s.position, value: p };
+    }
+    const id = d.oidSchreiben || d.oidPosition || d.oid;
     return id ? { oid: id, value: d.invertieren ? 100 - p : p } : null;
 }
 
 // ---------------------------------------------------------------- popups
 
 /** Auto close of the popups (hand-over 11.1): after a quick choice, after the slider, without input */
-export const POPUP_CLOSE_MS = { quick: 600, slider: 1200, idle: 5000 } as const;
+export const POPUP_CLOSE_MS = { quick: 600, slider: 1200, idle: 5000, kalibrieren: 10 * 60 * 1000 } as const;
 
 // ---------------------------------------------------------------- glow / tint
 

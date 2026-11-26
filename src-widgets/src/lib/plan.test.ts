@@ -4,15 +4,21 @@ import { describe, it } from 'node:test';
 import { ICONS } from './icons';
 import {
     DEVICE_TYPES,
+    blindMoving,
     blindPosition,
+    blindScript,
     blindSummary,
     blindWrite,
+    curveToRaw,
+    curveToVisible,
+    curveValid,
     deviceGlow,
     deviceOids,
     deviceOn,
     diagnosis,
     longPressPopup,
     maintenanceText,
+    parseCurve,
     parseDevices,
     parseViewBox,
     parseZones,
@@ -296,5 +302,72 @@ describe('side panel', () => {
                 ['rauch', 1, 0],
             ],
         );
+    });
+});
+
+describe('rollo script (calibration, live position)', () => {
+    const B = '0_userdata.0.rollo.r1';
+    const r = dev({ typ: 'rollo', oid: '', rollo: `${B}.` });
+
+    it('derives the data points from the base (trailing dot ignored)', () => {
+        assert.deepEqual(blindScript(r), {
+            position: `${B}.position`,
+            faehrt: `${B}.faehrt`,
+            ziel: `${B}.ziel`,
+            roh: `${B}.roh`,
+            kurve: `${B}.kurve`,
+            kalibrieren: `${B}.kalibrieren.ziel`,
+        });
+        assert.equal(blindScript(dev({ typ: 'lampe', rollo: B })), null);
+        assert.equal(blindScript(dev({ typ: 'rollo', oidPosition: 'p' })), null);
+    });
+
+    it('subscribes the script data points', () => {
+        const ids = deviceOids(r);
+        for (const k of ['position', 'faehrt', 'ziel', 'roh', 'kurve']) {
+            assert.ok(ids.includes(`${B}.${k}`), k);
+        }
+    });
+
+    it('reads position and moving from the script, ignores invertieren there', () => {
+        const v = values({ [`${B}.position`]: 40, [`${B}.faehrt`]: true });
+        assert.equal(blindPosition(r, v), 40);
+        assert.equal(blindPosition({ ...r, invertieren: true }, v), 40);
+        assert.equal(blindMoving(r, v), true);
+        assert.equal(pinState(r, v, 'de').animate, true);
+    });
+
+    it('writes commands to the script position (visible %)', () => {
+        assert.deepEqual(blindWrite({ ...r, invertieren: true }, 25), { oid: `${B}.position`, value: 25 });
+        assert.deepEqual(tapAction(r, values({ [`${B}.position`]: 30 })), {
+            kind: 'write',
+            oid: `${B}.position`,
+            value: 0,
+        });
+    });
+
+    it('parses the curve like the script; invalid means linear', () => {
+        assert.deepEqual(parseCurve('{"25":10,"50":32,"75":60}'), { 25: 10, 50: 32, 75: 60 });
+        assert.deepEqual(parseCurve({ 50: 32.4 }), { 50: 32 });
+        assert.deepEqual(parseCurve(''), {});
+        assert.deepEqual(parseCurve('kaputt'), {});
+        assert.deepEqual(parseCurve('{"25":40,"50":30}'), {});
+        assert.deepEqual(parseCurve('{"50":100}'), {});
+    });
+
+    it('converts in both directions (same values as the script tests)', () => {
+        const c = { 25: 10, 50: 32, 75: 60 };
+        assert.equal(curveToRaw(c, 50), 32);
+        assert.equal(curveToVisible(c, 32), 50);
+        assert.equal(curveToRaw(c, 0), 0);
+        assert.equal(curveToRaw(c, 100), 100);
+        assert.equal(curveToRaw({}, 37), 37);
+        assert.equal(curveToRaw({ 50: 32 }, 25), 16);
+    });
+
+    it('a curve must rise', () => {
+        assert.equal(curveValid({ 25: 10, 50: 32, 75: 60 }), true);
+        assert.equal(curveValid({ 25: 40, 50: 30 }), false);
+        assert.equal(curveValid({ 50: 32, 75: 32 }), false);
     });
 });

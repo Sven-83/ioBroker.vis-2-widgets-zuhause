@@ -15,7 +15,9 @@ import { DimmerPopup, RolloPopup } from '../components/ControlPopups';
 import { Pin } from '../components/Pin';
 import { ACK_TIMEOUT_MS } from '../lib/model';
 import {
+    blindMoving,
     blindPosition,
+    blindScript,
     blindWrite,
     deviceGlow,
     deviceOids,
@@ -23,6 +25,7 @@ import {
     diagnosis,
     dimLevel,
     longPressPopup,
+    parseCurve,
     parseDevices,
     parseZones,
     pinState,
@@ -235,6 +238,14 @@ export default class ZuhauseGrundriss extends (window.visRxWidget as typeof VisR
         }
     }
 
+    /** Plain write without confirmation tracking (calibration of the rollo script; it confirms itself) */
+    private writePlain(id: string, value: string | number): void {
+        if (this.props.editMode || !id) {
+            return;
+        }
+        this.props.context.setValue(id, value);
+    }
+
     private write(id: string, value: boolean | number): void {
         if (this.props.editMode || !id) {
             return;
@@ -402,6 +413,9 @@ export default class ZuhauseGrundriss extends (window.visRxWidget as typeof VisR
             );
         }
         if (longPressPopup(d) === 'rollo') {
+            const s = blindScript(d);
+            const target = s ? Number(val(s.ziel)) : NaN;
+            const raw = s ? Number(val(s.roh)) : NaN;
             return (
                 <RolloPopup
                     title={title}
@@ -413,6 +427,20 @@ export default class ZuhauseGrundriss extends (window.visRxWidget as typeof VisR
                         }
                     }}
                     onClose={close}
+                    live={!!s}
+                    moving={blindMoving(d, val)}
+                    target={Number.isFinite(target) ? target : undefined}
+                    calibration={
+                        s
+                            ? {
+                                  raw: Number.isFinite(raw) ? raw : 0,
+                                  curve: parseCurve(val(s.kurve)),
+                                  onDrive: r => this.writePlain(s.kalibrieren, r),
+                                  onSave: c => this.writePlain(s.kurve, JSON.stringify(c)),
+                                  onReset: () => this.writePlain(s.kurve, ''),
+                              }
+                            : undefined
+                    }
                 />
             );
         }

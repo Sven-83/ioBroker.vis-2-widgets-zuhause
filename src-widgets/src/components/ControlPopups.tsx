@@ -8,7 +8,15 @@ import { createPortal } from 'react-dom';
 
 import { HAUBE_LEVELS, HAUBE_TIMERS, type HaubePreset, presetLevelWrites, type PresetWrite } from '../lib/haube';
 import { formatNumber } from '../lib/model';
-import { POPUP_CLOSE_MS } from '../lib/plan';
+import {
+    CURVE_POINTS,
+    curveKnots,
+    curveToRaw,
+    curveValid,
+    type Curve,
+    type CurvePoint,
+    POPUP_CLOSE_MS,
+} from '../lib/plan';
 import { fonts, v } from '../lib/theme';
 import { useEbene } from './Ebene';
 import { Icon } from './Icon';
@@ -102,6 +110,7 @@ export function Frame({
     children,
     width = 360,
     hint = 'Schließt nach dem Verstellen automatisch · ohne Eingabe nach 5 s',
+    backdropCloses = true,
 }: {
     kind: string;
     title: string;
@@ -111,10 +120,12 @@ export function Frame({
     width?: number;
     /** line at the bottom; empty = none */
     hint?: string;
+    /** false: a tap outside does not close (calibration) */
+    backdropCloses?: boolean;
 }): React.JSX.Element {
     return createPortal(
         <div
-            onPointerDown={e => e.target === e.currentTarget && onClose()}
+            onPointerDown={e => backdropCloses && e.target === e.currentTarget && onClose()}
             style={{
                 position: 'fixed',
                 inset: 0,
@@ -133,6 +144,7 @@ export function Frame({
                 style={{
                     width,
                     maxWidth: 'calc(100vw - 32px)',
+                    transition: 'width .25s ease',
                     boxSizing: 'border-box',
                     background: v('card'),
                     border: `1px solid ${v('sw-off-bd')}`,
@@ -320,16 +332,114 @@ export function DimmerPopup(p: {
 
 // ---------------------------------------------------------------- blind
 
+/** Calibration of a blind through the rollo script (Spec rollo-kalibrierung 3.4) */
+export interface RolloCalibration {
+    /** Shelly position 0-100, live */
+    raw: number;
+    curve: Curve;
+    /** drive to Shelly % */
+    onDrive: (raw: number) => void;
+    onSave: (curve: Curve) => void;
+    onReset: () => void;
+}
+
+/** Window with the shade; closed part = 100 - open, slats run while moving */
+function BlindWindow({
+    open,
+    moving,
+    w,
+    h,
+}: {
+    open: number;
+    moving: boolean;
+    w: number;
+    h: number;
+}): React.JSX.Element {
+    return (
+        <div
+            aria-hidden
+            style={{
+                position: 'relative',
+                width: w,
+                height: h,
+                flex: 'none',
+                boxSizing: 'border-box',
+                borderRadius: 10,
+                border: '3px solid #55555c',
+                background: 'linear-gradient(#3b4a5c, #2a3542)',
+                overflow: 'hidden',
+            }}
+        >
+            <div
+                className={moving ? 'zh-rollo-faehrt' : undefined}
+                style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: '100%',
+                    transform: `scaleY(${(100 - open) / 100})`,
+                    transformOrigin: 'top',
+                    transition: 'transform .5s linear',
+                    background: 'repeating-linear-gradient(#5a5a62 0 7px, #46464d 7px 9px)',
+                }}
+            />
+        </div>
+    );
+}
+
 export function RolloPopup(p: {
     title: string;
     position: number;
     onPosition: (pos: number) => void;
     onClose: () => void;
+    /** position comes live from the rollo script: show it instead of the chosen value */
+    live?: boolean;
+    moving?: boolean;
+    /** visible target while moving */
+    target?: number;
+    calibration?: RolloCalibration;
 }): React.JSX.Element {
     const restart = useAutoClose(p.onClose);
     const writeLater = useDebounced(p.onPosition);
     const [pos, setPos] = React.useState(p.position);
-    const text = pos <= 0 ? 'zu' : `${Math.round(pos)} %`;
+    const [view, setView] = React.useState<'main' | 'kal'>('main');
+    // the slider follows the live position, unless it was touched in the last 1.5 s
+    const touched = React.useRef(0);
+    React.useEffect(() => {
+        if (p.live && Date.now() - touched.current > 1500) {
+            setPos(p.position);
+        }
+    }, [p.live, p.position]);
+
+    if (view === 'kal' && p.calibration) {
+        return (
+            <Frame
+                kind="ROLLO · KALIBRIEREN"
+                title={p.title}
+                label="Rollo kalibrieren"
+                onClose={p.onClose}
+                width={420}
+                hint="Schließt in dieser Ansicht nicht von selbst"
+                backdropCloses={false}
+            >
+                <CalibrationView
+                    cal={p.calibration}
+                    moving={!!p.moving}
+                    restart={() => restart(POPUP_CLOSE_MS.kalibrieren)}
+                    onDone={() => {
+                        setView('main');
+                        restart(POPUP_CLOSE_MS.idle);
+                    }}
+                />
+            </Frame>
+        );
+    }
+
+    const shown = p.live ? p.position : pos;
+    const text = shown <= 0 ? 'zu' : `${Math.round(shown)} %`;
+    const moving = !!p.live && !!p.moving;
+    const closing = moving && typeof p.target === 'number' && p.target < p.position;
     return (
         <Frame
             kind="ROLLO"
@@ -338,38 +448,35 @@ export function RolloPopup(p: {
             onClose={p.onClose}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                <div
-                    aria-hidden
-                    style={{
-                        position: 'relative',
-                        width: 120,
-                        height: 160,
-                        boxSizing: 'border-box',
-                        borderRadius: 10,
-                        border: '3px solid #55555c',
-                        background: 'linear-gradient(#3b4a5c, #2a3542)',
-                        overflow: 'hidden',
-                    }}
-                >
-                    <div
-                        style={{
-                            position: 'absolute',
-                            left: 0,
-                            right: 0,
-                            top: 0,
-                            height: '100%',
-                            transform: `scaleY(${(100 - pos) / 100})`,
-                            transformOrigin: 'top',
-                            transition: 'transform .3s ease',
-                            background: 'repeating-linear-gradient(#5a5a62 0 7px, #46464d 7px 9px)',
-                        }}
-                    />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <BlindWindow
+                    open={shown}
+                    moving={moving}
+                    w={120}
+                    h={160}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <span style={{ fontFamily: fonts.numbers, fontSize: 46, fontWeight: 600, lineHeight: 1 }}>
                         {text}
                     </span>
                     <span style={{ fontSize: 12, color: v('text-2') }}>geöffnet</span>
+                    <span
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: v('sw-on'),
+                            opacity: moving ? 1 : 0,
+                            transition: 'opacity .2s',
+                        }}
+                    >
+                        <span className={closing ? 'zh-rollo-pfeil-zu' : 'zh-rollo-pfeil-auf'}>
+                            {closing ? '▼' : '▲'}
+                        </span>
+                        {closing ? 'fährt zu' : 'fährt auf'}
+                        {typeof p.target === 'number' ? ` · Ziel ${Math.round(p.target)} %` : ''}
+                    </span>
                 </div>
             </div>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: v('text-2') }}>
@@ -382,6 +489,7 @@ export function RolloPopup(p: {
                     value={pos}
                     onChange={e => {
                         const n = Number(e.target.value);
+                        touched.current = Date.now();
                         setPos(n);
                         writeLater(n);
                         restart(POPUP_CLOSE_MS.slider);
@@ -391,15 +499,334 @@ export function RolloPopup(p: {
             </label>
             <Steps
                 values={[0, 25, 50, 75, 100]}
-                current={pos}
+                current={p.live ? (moving ? -1 : p.position) : pos}
                 label={x => (x === 0 ? 'zu' : x === 100 ? 'auf' : `${x} %`)}
                 onPick={x => {
+                    touched.current = Date.now();
                     setPos(x);
                     p.onPosition(x);
                     restart(POPUP_CLOSE_MS.quick);
                 }}
             />
+            {p.calibration ? (
+                <button
+                    type="button"
+                    className="zh-btn"
+                    onClick={() => {
+                        setView('kal');
+                        restart(POPUP_CLOSE_MS.kalibrieren);
+                    }}
+                    style={{
+                        alignSelf: 'center',
+                        height: 40,
+                        padding: '0 16px',
+                        borderRadius: 12,
+                        border: `1px solid ${v('sw-off-bd')}`,
+                        background: 'transparent',
+                        color: v('sw-off-fg'),
+                        fontSize: 13,
+                        fontWeight: 600,
+                    }}
+                >
+                    ⚙&nbsp; Kalibrieren
+                </button>
+            ) : null}
         </Frame>
+    );
+}
+
+const kalBtn: React.CSSProperties = {
+    border: `1px solid ${v('sw-off-bd')}`,
+    background: v('sw-off-bg'),
+    color: v('sw-off-fg'),
+    borderRadius: 12,
+    fontSize: 13,
+    fontWeight: 600,
+    padding: 0,
+};
+
+/** Calibration: choose a point, set the blind with ▲/▼ where it looks right, save */
+function CalibrationView({
+    cal,
+    moving,
+    restart,
+    onDone,
+}: {
+    cal: RolloCalibration;
+    moving: boolean;
+    restart: () => void;
+    onDone: () => void;
+}): React.JSX.Element {
+    const [point, setPoint] = React.useState<CurvePoint>(50);
+    const [raw, setRaw] = React.useState(() => cal.curve[50] ?? curveToRaw(cal.curve, 50));
+    const [msg, setMsg] = React.useState<{ text: string; err: boolean } | null>(null);
+    const [askReset, setAskReset] = React.useState(false);
+    const driveLater = useDebounced(cal.onDrive, 300);
+    const hold = React.useRef<{ t?: ReturnType<typeof setTimeout>; i?: ReturnType<typeof setInterval> }>({});
+    const resetTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+    const stopHold = (): void => {
+        clearTimeout(hold.current.t);
+        clearInterval(hold.current.i);
+    };
+    // entering the view drives to the stored (or linear) value of 50 %
+    React.useEffect(() => {
+        cal.onDrive(raw);
+        return () => {
+            stopHold();
+            clearTimeout(resetTimer.current);
+        };
+        // only once on entering
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const pick = (pt: CurvePoint): void => {
+        const r = cal.curve[pt] ?? curveToRaw(cal.curve, pt);
+        setPoint(pt);
+        setRaw(r);
+        setMsg(null);
+        cal.onDrive(r);
+        restart();
+    };
+    const nudge = (d: number): void => {
+        setRaw(r => {
+            const n = Math.max(1, Math.min(99, r + d));
+            driveLater(n);
+            return n;
+        });
+        setMsg(null);
+        restart();
+    };
+    const arrow = (d: 1 | -1): React.JSX.Element => (
+        <button
+            type="button"
+            className="zh-btn"
+            aria-label={d > 0 ? 'höher' : 'tiefer'}
+            onClick={() => nudge(d)}
+            onPointerDown={() => {
+                stopHold();
+                hold.current.t = setTimeout(() => {
+                    hold.current.i = setInterval(() => nudge(d * 5), 400);
+                }, 500);
+            }}
+            onPointerUp={stopHold}
+            onPointerLeave={stopHold}
+            onPointerCancel={stopHold}
+            style={{ ...kalBtn, width: 64, height: 56, fontSize: 22, color: v('text') }}
+        >
+            {d > 0 ? '▲' : '▼'}
+        </button>
+    );
+
+    const save = (): void => {
+        const c: Curve = { ...cal.curve, [point]: raw };
+        if (!curveValid(c)) {
+            setMsg({ text: `${point} % muss zwischen den Nachbarpunkten liegen – nicht gespeichert`, err: true });
+            return;
+        }
+        cal.onSave(c);
+        setMsg({ text: `Gespeichert: ${point} % = Shelly ${raw} %`, err: false });
+        restart();
+    };
+    const reset = (): void => {
+        clearTimeout(resetTimer.current);
+        if (!askReset) {
+            setAskReset(true);
+            resetTimer.current = setTimeout(() => setAskReset(false), 3000);
+            return;
+        }
+        setAskReset(false);
+        cal.onReset();
+        setMsg({ text: 'Zurückgesetzt: gleichmäßig wie vorher', err: false });
+        restart();
+    };
+
+    return (
+        <>
+            <span style={{ fontSize: 13, lineHeight: 1.4, color: v('text-2') }}>
+                Punkt wählen, Rollo mit ▲ ▼ so stellen, dass es <b style={{ color: v('text') }}>richtig aussieht</b>,
+                dann speichern.
+            </span>
+            <div style={{ display: 'flex', gap: 6 }}>
+                {CURVE_POINTS.map(pt => {
+                    const on = pt === point;
+                    const saved = cal.curve[pt] !== undefined;
+                    return (
+                        <button
+                            key={pt}
+                            type="button"
+                            className="zh-btn"
+                            aria-pressed={on}
+                            onClick={() => pick(pt)}
+                            style={{
+                                ...kalBtn,
+                                flex: 1,
+                                height: 58,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 2,
+                                border: `1px solid ${on ? v('sw-on') : saved ? v('st-on-bd') : v('sw-off-bd')}`,
+                                background: on ? v('sw-on') : v('sw-off-bg'),
+                                color: on ? v('sw-on-fg') : v('sw-off-fg'),
+                            }}
+                        >
+                            <span style={{ fontFamily: fonts.numbers, fontSize: 20 }}>{pt} %</span>
+                            <span style={{ fontSize: 11, color: !on && saved ? v('st-on-fg') : undefined }}>
+                                {saved ? `Shelly ${cal.curve[pt]} %` : 'nicht kalibriert'}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <BlindWindow
+                    open={cal.raw}
+                    moving={moving}
+                    w={96}
+                    h={128}
+                />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 12, color: v('text-2') }}>Shelly-Wert</span>
+                    <span style={{ fontFamily: fonts.numbers, fontSize: 40, fontWeight: 600, lineHeight: 1 }}>
+                        {Math.round(cal.raw)} %
+                    </span>
+                    <span style={{ fontSize: 12, color: v('text-2') }}>
+                        Ziel {raw} % · sichtbar soll: {point} %
+                    </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {arrow(1)}
+                    {arrow(-1)}
+                </div>
+            </div>
+            <CurveChart
+                curve={cal.curve}
+                point={point}
+                raw={cal.raw}
+            />
+            <span
+                style={{
+                    fontSize: 12,
+                    textAlign: 'center',
+                    minHeight: 16,
+                    color: msg?.err ? v('warn-fg') : v('st-on-fg'),
+                }}
+            >
+                {msg?.text ?? ''}
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                    type="button"
+                    className="zh-btn"
+                    onClick={reset}
+                    style={{
+                        ...kalBtn,
+                        flex: 1,
+                        height: 44,
+                        border: `1px solid ${askReset ? v('warn-bd') : v('sw-off-bd')}`,
+                        color: askReset ? v('warn-fg') : v('sw-off-fg'),
+                    }}
+                >
+                    {askReset ? 'Wirklich? Nochmal tippen' : 'Zurücksetzen'}
+                </button>
+                <button
+                    type="button"
+                    className="zh-btn"
+                    disabled={moving}
+                    onClick={save}
+                    style={{
+                        ...kalBtn,
+                        flex: 1,
+                        height: 44,
+                        border: `1px solid ${v('sw-on')}`,
+                        background: v('sw-on'),
+                        color: v('sw-on-fg'),
+                        opacity: moving ? 0.4 : 1,
+                    }}
+                >
+                    Speichern
+                </button>
+            </div>
+            <button
+                type="button"
+                className="zh-btn"
+                onClick={onDone}
+                style={{ ...kalBtn, alignSelf: 'center', height: 40, padding: '0 16px', background: 'transparent' }}
+            >
+                Fertig
+            </button>
+        </>
+    );
+}
+
+/** Curve: dashed = linear, yellow = calibration, white dot = current Shelly value at the chosen point */
+function CurveChart({ curve, point, raw }: { curve: Curve; point: CurvePoint; raw: number }): React.JSX.Element {
+    const W = 380;
+    const H = 92;
+    const pad = 6;
+    const X = (x: number): number => pad + (x / 100) * (W - 2 * pad);
+    const Y = (y: number): number => H - pad - (y / 100) * (H - 2 * pad);
+    const k = curveKnots(curve);
+    return (
+        <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            style={{ width: '100%', height: H }}
+            aria-hidden
+        >
+            <line
+                x1={X(0)}
+                y1={Y(0)}
+                x2={X(100)}
+                y2={Y(100)}
+                stroke="#44444a"
+                strokeDasharray="4 4"
+            />
+            <polyline
+                points={k.map(([vx, r]) => `${X(vx)},${Y(r)}`).join(' ')}
+                fill="none"
+                stroke="#f2c14e"
+                strokeWidth={2.5}
+                strokeLinejoin="round"
+            />
+            {k.map(([vx, r]) => (
+                <circle
+                    key={vx}
+                    cx={X(vx)}
+                    cy={Y(r)}
+                    r={vx === point ? 5 : 3.5}
+                    fill={vx === point ? '#f2c14e' : '#2b2b2f'}
+                    stroke="#f2c14e"
+                    strokeWidth={2}
+                />
+            ))}
+            <circle
+                className="zh-rollo-punkt"
+                cx={X(point)}
+                cy={Y(raw)}
+                r={4}
+                fill="#ece9e1"
+            />
+            <text
+                x={X(0) + 4}
+                y={14}
+                fill="#a3a19a"
+                fontSize={11}
+            >
+                Shelly-%
+            </text>
+            <text
+                x={X(100) - 4}
+                y={H - 10}
+                fill="#a3a19a"
+                fontSize={11}
+                textAnchor="end"
+            >
+                sichtbar %
+            </text>
+        </svg>
     );
 }
 

@@ -131,12 +131,18 @@ ${face('Zuhause Barlow Condensed', 600, condensed600)}
 .zh-d3{animation-delay:.8s}
 .zh-alarm-layer{animation:zh-alarmflash .9s steps(1) infinite}
 .zh-spinner{animation:zh-spinner .9s linear infinite}
+@keyframes zh-rollo-zu{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+@keyframes zh-rollo-auf{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.zh-rollo-pfeil-zu{display:inline-block;animation:zh-rollo-zu .8s ease-in-out infinite}
+.zh-rollo-pfeil-auf{display:inline-block;animation:zh-rollo-auf .8s ease-in-out infinite}
+.zh-rollo-faehrt{animation:zh-ray 1.2s ease-in-out infinite}
+.zh-rollo-punkt{animation:zh-ray 1.2s ease-in-out infinite}
 .zh-dezent [class*="zh-a-"],.zh-dezent.zh-a-warn{animation-duration:6s!important;opacity:.85}
 .zh-still [class*="zh-a-"],.zh-still.zh-a-warn,.zh-still .zh-alarm-layer{animation:none!important}
 .zh-tile:focus-visible,.zh-btn:focus-visible{outline:2px solid ${TOKENS['sw-on']};outline-offset:2px}
 .zh-btn{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .zh-btn:active{transform:scale(.97)}
-@media (prefers-reduced-motion:reduce){[class*="zh-a-"],.zh-alarm-layer,.zh-spinner{animation:none!important}}
+@media (prefers-reduced-motion:reduce){[class*="zh-a-"],[class*="zh-rollo-"],.zh-alarm-layer,.zh-spinner{animation:none!important}}
 `;
 
 /** Registers fonts, keyframes and helper classes once per page (no request to Google) */

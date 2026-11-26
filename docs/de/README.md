@@ -159,6 +159,7 @@ Das Widget **Grundriss** zeigt einen Plan mit Geräte-Pins und dem Lichtschein j
 | `oidHelligkeit` | Dimmer 0–100; macht „gedrückt halten = Helligkeit“ möglich |
 | `oidPosition` | Rollo 0 (zu) bis 100 (offen) |
 | `oidFaehrt` | Rollo fährt (Lamellen bewegen sich) |
+| `rollo` | Rollo über ein Kalibrier-Skript: Basis der Datenpunkte, z. B. `0_userdata.0.rollo.r1`. Dann kommen Position (live beim Fahren), „fährt“, Ziel und Kalibrierung aus `<basis>.position`, `.faehrt`, `.ziel`, `.roh`, `.kurve`; Befehle gehen auf `<basis>.position`, beim Kalibrieren auf `<basis>.kalibrieren.ziel`. `oidPosition`, `oidFaehrt` und `invertieren` sind dann nicht nötig |
 | `oidRauch`, `oidSirene` | Rauchmelder: eigene Detektion und Ansteuerung durch den Alarm-Adapter; Rauch hat Vorrang |
 | `oidEmpfang`, `empfangGrenze` | WLAN-Badge |
 | `oidBatterie`, `batterieGrenze` | Batterie-Badge, nur bei batteriebetriebenen Typen; Standard 20 % |
@@ -174,7 +175,7 @@ Das Widget **Grundriss** zeigt einen Plan mit Geräte-Pins und dem Lichtschein j
   - Sensoren: keine Aktion, nur Anzeige.
 - **Gedrückt halten (500 ms):**
   - Dimmer: Helligkeit.
-  - Rollo: Höhe.
+  - Rollo: Höhe. Mit `rollo` zählt die Anzeige beim Fahren mit (Richtung und Ziel darunter), und unten gibt es „Kalibrieren“: Punkt 25 / 50 / 75 % wählen, mit ▲ / ▼ (1 %, gedrückt halten 5 %) so stellen, dass es richtig aussieht, speichern. „Zurücksetzen“ (zweimal tippen) macht die Kurve wieder gleichmäßig. In dieser Ansicht schließt das Popup nicht von selbst und nicht durch Tippen daneben.
   - Schließzeiten: 0,6 s nach einer Schnellwahl, 1,2 s nach dem Regler, ohne Eingabe nach 5 s.
 
 **Lichtzonen (JSON):** Offene Bereiche ohne Wand bilden eine gemeinsame Zone, damit der Lichtschein nicht an unsichtbaren Kanten endet:
