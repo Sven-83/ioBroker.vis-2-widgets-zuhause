@@ -843,7 +843,7 @@ export function WeihnachtPopup(p: WeihnachtPopupProps): React.JSX.Element {
             label="Weihnachtsbeleuchtung"
             onClose={p.onClose}
             width={590}
-            hint="Hand gilt bis zum nächsten Ausschaltpunkt, ohne Laufzeit bis 23:00 · 23–7 Uhr: 15-min-Timer · schließt nach 60 s"
+            hint="Hand gilt bis zum nächsten Ausschaltpunkt, ohne Laufzeit bis 23:00 · 23–6 Uhr: 15-min-Timer · schließt nach 60 s"
         >
             <div
                 onPointerDownCapture={touch}
